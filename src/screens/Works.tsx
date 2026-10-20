@@ -45,7 +45,7 @@ export function Works() {
     else groups.push({ date: e.date, rows: [e] });
   }
 
-  const select = 'min-h-[48px] flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[16px]';
+  const select = 'min-h-[48px] w-0 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[16px]';
 
   return (
     <div className="px-4">

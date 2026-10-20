@@ -226,7 +226,7 @@ export function SettingsScreen() {
       <section className={section}>
         <h2 className={h2}>{t('settings.language')}</h2>
         <Segmented
-          options={[{ value: 'ru', label: 'Русский' }, { value: 'ky', label: 'Кыргызча' }]}
+          options={[{ value: 'ru', label: t('lang.ru') }, { value: 'ky', label: t('lang.ky') }]}
           value={settings.lang}
           onChange={(v) => void updateSettings({ lang: v })}
         />

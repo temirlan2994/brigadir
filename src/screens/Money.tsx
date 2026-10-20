@@ -127,7 +127,7 @@ export function Money() {
       </div>
 
       <div className="flex gap-2 py-3">
-        <select className="min-h-[48px] flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[16px]" aria-label={t('works.filterObject')} value={objectId} onChange={(e) => setObjectId(e.target.value)}>
+        <select className="min-h-[48px] w-0 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[16px]" aria-label={t('works.filterObject')} value={objectId} onChange={(e) => setObjectId(e.target.value)}>
           <option value="">{t('works.filterObject')}</option>
           <option value="all">{t('common.all')}</option>
           {objects.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
@@ -143,9 +143,9 @@ export function Money() {
         onChange={(v) => setPeriod(v)}
       />
       <div className="flex items-center gap-2 py-2">
-        <input type="date" className="min-h-[44px] flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[15px]" aria-label={t('common.date')} value={period === 'custom' ? customFrom : range.from === '0000-01-01' ? '' : range.from} onChange={(e) => { setCustomFrom(e.target.value); setPeriod('custom'); }} />
+        <input type="date" className="min-h-[44px] w-0 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[15px]" aria-label={t('common.date')} value={period === 'custom' ? customFrom : range.from === '0000-01-01' ? '' : range.from} onChange={(e) => { setCustomFrom(e.target.value); setPeriod('custom'); }} />
         <span className="text-slate-400">—</span>
-        <input type="date" className="min-h-[44px] flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[15px]" aria-label={t('common.date')} value={period === 'custom' ? customTo : range.to === '9999-12-31' ? '' : range.to} onChange={(e) => { setCustomTo(e.target.value); setPeriod('custom'); }} />
+        <input type="date" className="min-h-[44px] w-0 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-2 text-[15px]" aria-label={t('common.date')} value={period === 'custom' ? customTo : range.to === '9999-12-31' ? '' : range.to} onChange={(e) => { setCustomTo(e.target.value); setPeriod('custom'); }} />
       </div>
 
       <div className="flex flex-col gap-1.5">

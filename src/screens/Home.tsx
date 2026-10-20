@@ -4,7 +4,7 @@ import { Settings as SettingsIcon, Check, Plus } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
 import { formatMoney } from '../core/format';
 import { useFeed, useHomeSummary } from '../lib/summary';
-import { useObjects, useWorkers } from '../lib/hooks';
+import { useObjects } from '../lib/hooks';
 import { loadDemo, startFresh, seedRatesForObject } from '../db/seed';
 import { addObject, todayStr, updateSettings } from '../db/repo';
 import { useToast } from '../state/toast';
@@ -18,12 +18,12 @@ export function Home() {
   const toast = useToast();
   const sum = useHomeSummary();
   const feed = useFeed(20);
-  const workers = useWorkers();
   const objects = useObjects();
   const [showObjects, setShowObjects] = useState(false);
   const [newObjectName, setNewObjectName] = useState<string | null>(null);
 
-  const isEmpty = workers.length === 0 && sum.entries.length === 0;
+  // Пустое состояние — пока нет ни одного объекта (первый запуск или после полной очистки)
+  const isEmpty = objects.length === 0;
 
   async function createObject() {
     const name = (newObjectName ?? '').trim();
