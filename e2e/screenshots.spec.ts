@@ -29,6 +29,11 @@ test('скриншоты всех экранов', async ({ page }) => {
   await shot(page, '04-master-2-skolko');
   await page.getByTestId('next-2').click();
   await shot(page, '05-master-3-kto-rabotal');
+  // Отметить сварщиков, если не подставились из прошлой записи
+  for (const name of ['Азамат', 'Нурлан']) {
+    const btn = page.getByTestId(`worker-${name}`);
+    if (!(await btn.getAttribute('class'))?.includes('orange')) await btn.click();
+  }
   await page.getByTestId('next-3').click();
   await shot(page, '06-master-4-prover');
 

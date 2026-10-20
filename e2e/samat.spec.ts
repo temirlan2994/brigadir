@@ -23,6 +23,8 @@ test('сценарий «Самат»: от чистого запуска до �
   await page.getByTestId('to-accept').click();
   await page.locator('input[type="checkbox"]').first().check();
   await page.getByTestId('accept-selected').click();
+  // Дождаться возврата на экран поступления, чтобы navigate(-1) не увёл назад позже
+  await expect(page.getByTestId('to-accept')).toBeVisible();
   await page.goto('/#/');
   await expect(page.getByTestId('owed-to-me')).toContainText('78 000 сом');
 
@@ -51,6 +53,8 @@ test('сценарий «Самат»: от чистого запуска до �
   await page.getByTestId('cat-transport').click();
   await typeNum(page, '3000');
   await page.getByTestId('save-expense').click();
+  // Дождаться возврата на главную, прежде чем уходить на «Деньги»
+  await expect(page.getByTestId('btn-work')).toBeVisible();
   await page.goto('/#/money');
   await expect(page.getByTestId('cash-value')).toContainText('37 000 сом');
 });

@@ -1,12 +1,9 @@
 // Экспорт JSON → удаление всех данных → импорт → числа те же.
 import { test, expect } from '@playwright/test';
-import { loadDemo } from './helpers';
+import { loadDemo, DEMO } from './helpers';
 
 test('экспорт и импорт JSON восстанавливают данные один в один', async ({ page }) => {
   await loadDemo(page);
-  const owed = await page.getByTestId('owed-to-me').textContent();
-  const owedWorkers = await page.getByTestId('owed-to-workers').textContent();
-  const free = await page.getByTestId('free-cash').textContent();
 
   // Скачать JSON
   await page.goto('/#/settings');
@@ -30,7 +27,7 @@ test('экспорт и импорт JSON восстанавливают дан�
 
   // Три числа на главной те же
   await page.goto('/#/');
-  await expect(page.getByTestId('owed-to-me')).toHaveText(owed!);
-  await expect(page.getByTestId('owed-to-workers')).toHaveText(owedWorkers!);
-  await expect(page.getByTestId('free-cash')).toHaveText(free!);
+  await expect(page.getByTestId('owed-to-me')).toContainText(DEMO.owedToMe);
+  await expect(page.getByTestId('owed-to-workers')).toContainText(DEMO.owedToWorkers);
+  await expect(page.getByTestId('free-cash')).toContainText(DEMO.free);
 });

@@ -40,10 +40,19 @@ export async function recordWelding(page: Page, workers: string[]) {
   await expect(page.getByTestId('owed-to-me')).toBeVisible();
 }
 
+// Демо-значения детерминированы; ждём их, чтобы загрузка точно завершилась
+export const DEMO = {
+  owedToMe: '21 750 сом',
+  owedToWorkers: '67 250 сом',
+  free: '81 250 сом',
+};
+
 export async function loadDemo(page: Page) {
   await page.goto('/#/');
   await page.getByTestId('load-demo').click();
-  await expect(page.getByTestId('owed-to-me')).toBeVisible();
+  await expect(page.getByTestId('owed-to-me')).toContainText(DEMO.owedToMe);
+  await expect(page.getByTestId('owed-to-workers')).toContainText(DEMO.owedToWorkers);
+  await expect(page.getByTestId('free-cash')).toContainText(DEMO.free);
 }
 
 export function somText(amount: string) {
