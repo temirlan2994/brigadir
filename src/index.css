@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Только светлая тема, основной шрифт 18 px */
+html {
+  background: #e2e8f0;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 18px;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+/* Печать акта: без навигации, белый фон */
+@media print {
+  html, body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-page {
+    max-width: none !important;
+    box-shadow: none !important;
+  }
+}
