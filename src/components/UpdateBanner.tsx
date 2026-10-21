@@ -40,7 +40,11 @@ export function UpdateBanner() {
         <button
           data-testid="update-app"
           className="min-h-[48px] shrink-0 rounded-xl bg-orange-500 px-4 text-[16px] font-semibold"
-          onClick={() => void updateServiceWorker(true)}
+          onClick={() => {
+            void updateServiceWorker(true);
+            // Страховка: если старый SW не передал контроль, перезагружаемся сами
+            setTimeout(() => window.location.reload(), 1500);
+          }}
         >
           {t('update.do')}
         </button>
