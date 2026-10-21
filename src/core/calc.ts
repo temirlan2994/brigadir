@@ -2,6 +2,7 @@
 // Все деньги — целые тыйыны. Функции принимают массивы записей и дату today.
 import type {
   WorkEntry, Payout, Expense, Receipt, CustomerAdjustment, Money, TaxMode,
+  CashMove, ObjectStage,
 } from '../db/types';
 
 export interface Deletable { deletedAt?: string }
@@ -33,9 +34,11 @@ export function doneTotal(active: WorkEntry[]): Money {
   return active.reduce((s, e) => s + e.customerTotal, 0);
 }
 
-// Принято
+// Принято (при частичной приёмке — принятая часть)
 export function acceptedTotal(active: WorkEntry[]): Money {
-  return active.filter((e) => e.accepted).reduce((s, e) => s + e.customerTotal, 0);
+  return active
+    .filter((e) => e.accepted)
+    .reduce((s, e) => s + (e.acceptedTotal ?? e.customerTotal), 0);
 }
 
 // Не принято
@@ -133,17 +136,40 @@ export function payoutsFromCash(payouts: Payout[]): Money {
     .reduce((s, p) => s + p.amount, 0);
 }
 
-// Касса = начальный остаток + поступило − выдано − расходы подрядчика
+// Личные движения: вложил свои (+) и взял себе (−)
+export function cashMovesNet(moves: CashMove[]): Money {
+  return notDeleted(moves).reduce((s, m) => s + (m.kind === 'contribution' ? m.amount : -m.amount), 0);
+}
+
+// Касса = начальный остаток + поступило − выдано − расходы подрядчика ± личные движения
 export function cashBalance(
   openingCash: Money, receipts: Receipt[], payouts: Payout[], expenses: Expense[],
+  moves: CashMove[] = [],
 ): Money {
   return openingCash + receiptsTotal(receipts)
-    - payoutsFromCash(payouts) - contractorExpensesTotal(expenses);
+    - payoutsFromCash(payouts) - contractorExpensesTotal(expenses) + cashMovesNet(moves);
 }
 
 // Свободно = Касса − Я должен рабочим
 export function freeCash(cash: Money, owed: Money): Money {
   return cash - owed;
+}
+
+// Аванс заказчика, который ещё надо отработать (когда поступило больше принятого)
+export function customerAdvanceLeft(owed: Money): Money {
+  return owed < 0 ? -owed : 0;
+}
+
+// Стадия объекта по тому, что уже произошло
+export function objectStage(
+  obj: { closedAt?: string }, active: WorkEntry[], receipts: Receipt[],
+): ObjectStage {
+  if (obj.closedAt) return 'closed';
+  if (active.length === 0) return 'taken';
+  const accepted = acceptedTotal(active);
+  if (accepted > 0 && receiptsTotal(receipts) > 0) return 'getting';
+  if (accepted > 0) return 'handing';
+  return 'working';
 }
 
 // Календарные месяцы от месяца from до месяца to включительно (минимум 1)

@@ -15,6 +15,7 @@ export interface BackupFile {
 const DATA_TABLES = [
   'settings', 'objects', 'workTypes', 'rates', 'workers', 'workEntries',
   'payouts', 'expenses', 'receipts', 'adjustments', 'changeLog',
+  'cashMoves', 'attendance',
 ] as const;
 
 function blobToBase64(blob: Blob): Promise<string> {

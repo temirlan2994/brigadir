@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Карта интерфейса — Бригадир</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e5e5e5; font-family: Inter, "Segoe UI", Roboto, system-ui, sans-serif; color: #17191C; }
+  .map { width: 1500px; background: #F4F1EA; padding: 36px 40px 32px; }
+  h1 { margin: 0 0 4px; font-size: 28px; font-weight: 900; letter-spacing: -.3px; }
+  .lead { margin: 0 0 24px; color: #6B7280; font-size: 15px; font-weight: 600; }
+  .journey { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; align-items: start; }
+  .step { position: relative; }
+  .step .n { width: 34px; height: 34px; border-radius: 50%; background: #17191C; color: #FFC400; font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .step h3 { margin: 0 0 4px; font-size: 16px; font-weight: 900; line-height: 1.15; }
+  .step p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.4; color: #4B5563; font-weight: 500; min-height: 54px; }
+  .screens { display: flex; flex-direction: column; gap: 8px; }
+  .scr { background: #fff; border-radius: 14px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(31,41,55,.06); font-size: 13px; line-height: 1.35; }
+  .scr b { display: block; font-size: 14px; font-weight: 800; margin-bottom: 2px; }
+  .scr.tab { border: 2px solid #FFC400; }
+  .scr.tab b::before { content: "▣ "; color: #D4A000; }
+  .scr.onb { border-left: 5px solid #17191C; }
+  .scr.sub { border-left: 5px solid #C9C3B6; }
+  .track { height: 8px; background: #E6E1D6; border-radius: 4px; margin: 10px 0 22px; position: relative; }
+  .track::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(90deg, #FFC400, #FFC400 62%, #E6E1D6 62%); border-radius: 4px; }
+  .legend { display: flex; gap: 22px; margin-top: 22px; font-size: 13px; color: #4B5563; font-weight: 600; align-items: center; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 22px; height: 14px; border-radius: 4px; background: #fff; border: 2px solid #FFC400; }
+  .sw.onb { background: #17191C; border-color: #17191C; }
+  .sw.sub { background: #fff; border: 2px solid #C9C3B6; }
+  .tabs { margin-top: 26px; background: #fff; border-radius: 18px; padding: 14px 18px; display: grid; grid-template-columns: 180px repeat(4, 1fr); gap: 14px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .tabs .t { font-size: 15px; font-weight: 800; }
+  .tabs .tab { background: #F4F1EA; border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+  .tabs .tab b { display: block; font-size: 14px; font-weight: 900; }
+  .settings { margin-top: 14px; background: #ECE8DF; border-radius: 18px; padding: 12px 18px; font-size: 13px; color: #374151; }
+  .settings b { font-weight: 800; color: #17191C; }
+</style>
+</head>
+<body>
+<div class="map" id="map">
+  <h1>Карта приложения «Бригадир» — вдоль пути бригадира</h1>
+  <p class="lead">Каждый экран стоит там, где он нужен в работе. Чёрные — делаются один раз при старте объекта. Жёлтые — вкладки снизу, они всегда под рукой. Серые — открываются из других экранов.</p>
+
+  <div class="journey">
+    <div class="step">
+      <div class="n">1</div><h3>Взял объект</h3>
+      <p>Посмотрел фронт работ, договорился с заказчиком, как и когда платит.</p>
+      <div class="screens">
+        <div class="scr onb"><b>Взял объект</b>название, заказчик, телефон, как платит</div>
+        <div class="scr tab"><b>Объекты</b>все объекты и их стадии, «Взял новый объект»</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">2</div><h3>Договорились о ценах</h3>
+      <p>За единицу: заказчик платит 600, бригаде — 400. Разница — заработок.</p>
+      <div class="screens">
+        <div class="scr onb"><b>О каких ценах договорились</b>виды работ галочками, две цены в строке</div>
+        <div class="scr sub"><b>Цены и заказчик</b>внутри объекта: поправить цены, данные заказчика</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">3</div><h3>Собрал бригаду</h3>
+      <p>Сварщики, каменщики, разнорабочие. Люди приходят и уходят по ходу.</p>
+      <div class="screens">
+        <div class="scr onb"><b>Кто в бригаде</b>имена, специальность, «ещё один»</div>
+        <div class="scr tab"><b>Бригада</b>кому сколько должен, «Рассчитаться», добавить человека</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">4</div><h3>Каждый день</h3>
+      <p>Вечером: что сделали, сколько, кто. Авансы и расходы — по ходу дня.</p>
+      <div class="screens">
+        <div class="scr tab"><b>Сегодня</b>свободно на зарплату, одна большая кнопка «Записать работу», лента</div>
+        <div class="scr sub"><b>Записать работу</b>что → сколько → кто → проверь (4 шага)</div>
+        <div class="scr sub"><b>Выдал · Потратил · Получил</b>кому/на что → сумма</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">5</div><h3>Сдал объёмы</h3>
+      <p>Прораб заказчика замерил и принял. Принятое идёт в акт.</p>
+      <div class="screens">
+        <div class="scr sub"><b>Сдача заказчику</b>галочки «принято», сумма выбранного, «Собрать акт»</div>
+        <div class="scr sub"><b>Акт</b>таблица принятого, печать или отправить</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">6</div><h3>Получил деньги</h3>
+      <p>Частями, с задержкой, с удержаниями. Сколько реально должны сейчас?</p>
+      <div class="screens">
+        <div class="scr sub"><b>Деньги заказчика</b>поступления, удержания и штрафы, «заказчик должен»</div>
+        <div class="scr sub"><b>Объект</b>стадия, сделано / принято / заплатил / должен</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">7</div><h3>Рассчитался с бригадой</h3>
+      <p>Заработал минус авансы. Споры решает выписка по дням.</p>
+      <div class="screens">
+        <div class="scr sub"><b>Рабочий</b>осталось выдать, по дням, «Выдать», «Выписка в WhatsApp»</div>
+        <div class="scr tab"><b>Касса</b>в кассе, из чего сложилось, хватит ли на зарплату</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">8</div><h3>Закрыл объект</h3>
+      <p>Итоговый акт, остаток от заказчика, окончательный расчёт. Заработал или нет?</p>
+      <div class="screens">
+        <div class="scr sub"><b>Итог объекта</b>заработал, за сколько дней, что съело деньги</div>
+        <div class="scr sub"><b>Объекты → Закрыт</b>архив с результатом каждого объекта</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="t">Вкладки снизу<br><span style="font-size:12px;color:#6B7280;font-weight:600">всегда на экране</span></div>
+    <div class="tab"><b>Сегодня</b>записать, выдать, потратить, получил; свободно ли на зарплату</div>
+    <div class="tab"><b>Объекты</b>стадия каждого объекта, что сдано и сколько должны; новый объект</div>
+    <div class="tab"><b>Бригада</b>кому сколько должен; выдача и выписка</div>
+    <div class="tab"><b>Касса</b>деньги по всем объектам; выгрузка в таблицу</div>
+  </div>
+
+  <div class="settings"><b>Настройки программы (шестерёнка):</b> язык · налог · начальный остаток кассы · справочник видов работ и пиктограмм · резервная копия · загрузить пример · удалить все данные · версия и обновления. Ничего про объекты и цены здесь нет — это живёт внутри объекта.</div>
+
+  <div class="legend">
+    <span><i class="sw onb"></i> один раз при старте объекта</span>
+    <span><i class="sw"></i> вкладка снизу</span>
+    <span><i class="sw sub"></i> открывается из экрана выше</span>
+  </div>
+</div>
+</body>
+</html>

@@ -5,27 +5,23 @@ import { loadDemo, DEMO } from './helpers';
 test('экспорт и импорт JSON восстанавливают данные один в один', async ({ page }) => {
   await loadDemo(page);
 
-  // Скачать JSON
   await page.goto('/#/settings');
   const downloadPromise = page.waitForEvent('download');
   await page.getByTestId('download-json').click();
   const download = await downloadPromise;
   const filePath = await download.path();
 
-  // Удалить все данные (двойное подтверждение со словом «удалить»)
   await page.getByTestId('wipe-all').click();
   await page.getByTestId('wipe-word').fill('удалить');
   await page.getByTestId('wipe-confirm').click();
   await page.goto('/#/');
-  await expect(page.getByTestId('start-clean')).toBeVisible();
+  await expect(page.getByTestId('start-new-object')).toBeVisible();
 
-  // Импорт
   await page.goto('/#/settings');
   page.once('dialog', (d) => void d.accept());
   await page.getByTestId('upload-json-input').setInputFiles(filePath!);
   await expect(page.getByText('Данные загружены')).toBeVisible();
 
-  // Три числа на главной те же
   await page.goto('/#/');
   await expect(page.getByTestId('owed-to-me')).toContainText(DEMO.owedToMe);
   await expect(page.getByTestId('owed-to-workers')).toContainText(DEMO.owedToWorkers);

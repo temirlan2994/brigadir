@@ -4,7 +4,7 @@ import type { ReactNode, SVGProps } from 'react';
 import {
   Zap, Shovel, HardHat, PaintRoller, Truck, Fuel, Wrench, UtensilsCrossed,
   Bed, Package, MoreHorizontal, Box, Ruler, Hammer, Paintbrush, Settings,
-  LayoutGrid,
+  LayoutGrid, ClipboardCheck, Tag, Flag, RotateCcw,
 } from 'lucide-react';
 
 export interface IconProps {
@@ -180,6 +180,10 @@ const lucide: Record<string, (p: { size?: number; className?: string }) => React
   hammer: (p) => <Hammer {...p} aria-hidden="true" />,
   brush: (p) => <Paintbrush {...p} aria-hidden="true" />,
   gear: (p) => <Settings {...p} aria-hidden="true" />,
+  clip: (p) => <ClipboardCheck {...p} aria-hidden="true" />,
+  tag: (p) => <Tag {...p} aria-hidden="true" />,
+  flag: (p) => <Flag {...p} aria-hidden="true" />,
+  repeat: (p) => <RotateCcw {...p} aria-hidden="true" />,
 };
 
 // Пиктограммы категорий расходов

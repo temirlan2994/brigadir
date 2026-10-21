@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Minus, Plus } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
 import { db } from '../db/db';
-import { useActiveObject, useWorkers, useWorkTypes } from '../lib/hooks';
+import { useActiveObject, useWorkers, useWorkTypes, useAttendance } from '../lib/hooks';
 import { useDraft } from '../state/draft';
 import { activeEntries, calcArea, lineTotals, splitShares } from '../core/calc';
 import { formatMoney, parseDecimal, somsToTyiyn, tyiynToSomsInput, formatQuantity } from '../core/format';
@@ -45,6 +45,7 @@ export function WorkWizard() {
   const activeObject = useActiveObject();
   const entriesRaw = useLiveQuery(() => db.workEntries.toArray(), []);
   const entries = useMemo(() => entriesRaw ?? [], [entriesRaw]);
+  const attendanceToday = useAttendance(activeObject?.id, todayStr());
   const [showAll, setShowAll] = useState(false);
   const [focus, setFocus] = useState('');
   const [newWorkerName, setNewWorkerName] = useState<string | null>(null);
@@ -98,9 +99,11 @@ export function WorkWizard() {
         reset({ date: todayStr() });
       }
     } else {
+      // Кто работал по умолчанию: сегодняшняя перекличка, иначе участники прошлой записи
+      const fromAttendance = attendanceToday?.workerIds ?? [];
       reset({
         date: todayStr(),
-        workerIds: lastEntry ? lastEntry.shares.map((s) => s.workerId) : [],
+        workerIds: fromAttendance.length > 0 ? fromAttendance : (lastEntry ? lastEntry.shares.map((s) => s.workerId) : []),
       });
       if (step !== 0) navigate('?step=0', { replace: true });
     }
@@ -269,7 +272,7 @@ export function WorkWizard() {
   const titles = [t('wizard.whatDone'), t('wizard.howMuch'), t('wizard.whoWorked'), t('wizard.check')];
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={isEdit ? t('wizard.editTitle') : titles[step]} onBack={back} />
       <ProgressDots total={STEP_COUNT} current={step} />
 
@@ -279,7 +282,7 @@ export function WorkWizard() {
           <div className="grid grid-cols-2 gap-3">
             {lastEntry && (
               <Tile
-                icon="gear"
+                icon="repeat"
                 label={t('wizard.likeYesterday')}
                 sub={wtLabel(workTypes.find((w) => w.id === lastEntry.workTypeId), lang)}
                 onClick={() => { prefillFromEntry(lastEntry, false); goStep(3); }}

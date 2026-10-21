@@ -2,8 +2,9 @@
 import { db } from './db';
 import type {
   ChangeLog, CustomerAdjustment, Expense, Payout, Rate, Receipt,
-  Settings, SiteObject, WorkEntry, Worker, WorkType, Money,
+  Settings, SiteObject, WorkEntry, Worker, WorkType, Money, CashMove,
 } from './types';
+import { lineTotals } from '../core/calc';
 
 export const uid = () => crypto.randomUUID();
 export const nowIso = () => new Date().toISOString();
@@ -39,8 +40,10 @@ export async function updateSettings(patch: Partial<Settings>) {
 
 // --- Объекты ---
 
-export async function addObject(name: string, customerName?: string): Promise<SiteObject> {
-  const obj: SiteObject = { id: uid(), name, customerName, createdAt: nowIso() };
+export async function addObject(
+  name: string, customerName?: string, extra: Partial<SiteObject> = {},
+): Promise<SiteObject> {
+  const obj: SiteObject = { id: uid(), name, customerName, createdAt: nowIso(), ...extra };
   await db.objects.add(obj);
   await log('object', obj.id, 'create', name);
   return obj;
@@ -114,19 +117,60 @@ export async function reviseWorkEntry(
 export async function acceptWorkEntries(ids: string[]) {
   const at = nowIso();
   for (const id of ids) {
-    await db.workEntries.update(id, { accepted: true, acceptedAt: at });
+    await db.workEntries.update(id, {
+      accepted: true, acceptedAt: at, acceptedQuantity: undefined, acceptedTotal: undefined, acceptNote: undefined,
+    });
     await log('workEntry', id, 'update', 'принято');
   }
 }
 
+// Частичная приёмка: принят меньший объём, остаток — переделка или спор
+export async function acceptWorkEntryPartially(id: string, acceptedQuantity: number, acceptNote?: string) {
+  const entry = await db.workEntries.get(id);
+  if (!entry) return;
+  const qty = Math.max(0, Math.min(entry.quantity, acceptedQuantity));
+  const acceptedTotal = lineTotals(qty, entry.customerPrice, 0).customerTotal;
+  await db.workEntries.update(id, {
+    accepted: qty > 0, acceptedAt: nowIso(), acceptedQuantity: qty, acceptedTotal, acceptNote,
+  });
+  await log('workEntry', id, 'update', `принято ${qty} из ${entry.quantity}`);
+}
+
 export async function unacceptWorkEntry(id: string) {
-  await db.workEntries.update(id, { accepted: false, acceptedAt: undefined });
+  await db.workEntries.update(id, {
+    accepted: false, acceptedAt: undefined, acceptedQuantity: undefined, acceptedTotal: undefined, acceptNote: undefined,
+  });
   await log('workEntry', id, 'update', 'приёмка снята');
+}
+
+// --- Личные движения кассы ---
+
+export async function addCashMove(data: Omit<CashMove, 'id' | 'createdAt'>): Promise<CashMove> {
+  const row: CashMove = { ...data, id: uid(), createdAt: nowIso() };
+  await db.cashMoves.add(row);
+  await log('cashMove', row.id, 'create', `${row.kind} ${row.amount}`);
+  return row;
+}
+
+export async function updateCashMove(id: string, patch: Partial<CashMove>) {
+  await db.cashMoves.update(id, patch);
+  await log('cashMove', id, 'update', '');
+}
+
+// --- Кто вышел ---
+
+export async function setAttendance(objectId: string, date: string, workerIds: string[]) {
+  const existing = await db.attendance.where({ objectId, date }).first();
+  if (existing) {
+    await db.attendance.update(existing.id, { workerIds });
+  } else {
+    await db.attendance.add({ id: uid(), objectId, date, workerIds, createdAt: nowIso() });
+  }
 }
 
 // --- Общие операции с журналами ---
 
-type SoftTable = 'workEntries' | 'payouts' | 'expenses' | 'receipts' | 'adjustments';
+type SoftTable = 'workEntries' | 'payouts' | 'expenses' | 'receipts' | 'adjustments' | 'cashMoves';
 
 export async function softDelete(table: SoftTable, id: string) {
   await db[table].update(id, { deletedAt: nowIso() });

@@ -7,22 +7,30 @@ import { useLangStore } from './i18n';
 import { BottomNav } from './components/BottomNav';
 import { Toast } from './components/Toast';
 import { UpdateBanner } from './components/UpdateBanner';
-import { Home } from './screens/Home';
+import { Today } from './screens/Today';
+import { Objects } from './screens/Objects';
+import { NewObjectWizard } from './screens/NewObjectWizard';
+import { ObjectScreen } from './screens/ObjectScreen';
+import { ObjectWorks } from './screens/ObjectWorks';
+import { Handover } from './screens/Handover';
+import { CustomerMoney } from './screens/CustomerMoney';
+import { ObjectPrices } from './screens/ObjectPrices';
+import { ObjectResult } from './screens/ObjectResult';
+import { CloseObject } from './screens/CloseObject';
+import { Team } from './screens/Team';
+import { WorkerCard } from './screens/WorkerCard';
+import { Cash } from './screens/Cash';
+import { CashMoveNew } from './screens/CashMoveNew';
+import { AttendanceToday } from './screens/AttendanceToday';
 import { WorkWizard } from './screens/WorkWizard';
 import { PayoutNew } from './screens/PayoutNew';
 import { ExpenseNew } from './screens/ExpenseNew';
 import { ReceiptNew } from './screens/ReceiptNew';
-import { AcceptWorks } from './screens/AcceptWorks';
 import { AdjustmentNew } from './screens/AdjustmentNew';
-import { Workers } from './screens/Workers';
-import { WorkerCard } from './screens/WorkerCard';
-import { Works } from './screens/Works';
 import { WorkEntryCard } from './screens/WorkEntryCard';
 import { RecordCard } from './screens/RecordCard';
-import { Money } from './screens/Money';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { ActPrint } from './screens/ActPrint';
-import { Details } from './screens/Details';
 
 // Вкладки с нижней навигацией
 function TabLayout() {
@@ -53,24 +61,32 @@ export default function App() {
 
   return (
     <HashRouter>
-      <div className="mx-auto min-h-screen w-full max-w-[430px] bg-slate-50 shadow-xl print-page">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] bg-paper shadow-xl print-page">
         <Routes>
           <Route element={<TabLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/works" element={<Works />} />
-            <Route path="/workers" element={<Workers />} />
-            <Route path="/money" element={<Money />} />
+            <Route path="/" element={<Today />} />
+            <Route path="/objects" element={<Objects />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/cash" element={<Cash />} />
           </Route>
+          <Route path="/objects/new" element={<NewObjectWizard />} />
+          <Route path="/objects/:id" element={<ObjectScreen />} />
+          <Route path="/objects/:id/works" element={<ObjectWorks />} />
+          <Route path="/objects/:id/handover" element={<Handover />} />
+          <Route path="/objects/:id/money" element={<CustomerMoney />} />
+          <Route path="/objects/:id/prices" element={<ObjectPrices />} />
+          <Route path="/objects/:id/result" element={<ObjectResult />} />
+          <Route path="/objects/:id/close" element={<CloseObject />} />
+          <Route path="/team/:id" element={<WorkerCard />} />
+          <Route path="/cashmove/new" element={<CashMoveNew />} />
+          <Route path="/attendance" element={<AttendanceToday />} />
           <Route path="/work/new" element={<WorkWizard />} />
           <Route path="/payout/new" element={<PayoutNew />} />
           <Route path="/expense/new" element={<ExpenseNew />} />
           <Route path="/receipt/new" element={<ReceiptNew />} />
-          <Route path="/accept" element={<AcceptWorks />} />
           <Route path="/adjustment/new" element={<AdjustmentNew />} />
-          <Route path="/workers/:id" element={<WorkerCard />} />
           <Route path="/works/:id" element={<WorkEntryCard />} />
           <Route path="/record/:table/:id" element={<RecordCard />} />
-          <Route path="/details/:metric" element={<Details />} />
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/act" element={<ActPrint />} />
         </Routes>

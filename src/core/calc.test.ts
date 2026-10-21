@@ -6,8 +6,9 @@ import {
   paidToWorker, withheldFromWorker, workerBalance, workerIdsInvolved, owedToWorkers,
   advanceOverruns, contractorExpensesTotal, payoutsFromCash, cashBalance, freeCash,
   monthsInclusive, taxAmount, firstEntryDate, profitForecast, splitShares, calcArea,
+  cashMovesNet, customerAdvanceLeft, objectStage,
 } from './calc';
-import type { WorkEntry, Payout, Expense, Receipt, CustomerAdjustment, Share } from '../db/types';
+import type { WorkEntry, Payout, Expense, Receipt, CustomerAdjustment, Share, CashMove } from '../db/types';
 
 // Сом → тыйын, для читаемости тестов
 const som = (n: number) => Math.round(n * 100);
@@ -282,5 +283,58 @@ describe('Поступления', () => {
   it('сумма без удалённых', () => {
     const rec = [receipt({ amount: som(10_000) }), receipt({ amount: som(5_000), deletedAt: 'x' })];
     expect(receiptsTotal(rec)).toBe(som(10_000));
+  });
+});
+
+describe('Частичная приёмка', () => {
+  it('принято 450 из 500 кг → принято 29 250, не принято 3 250', () => {
+    const e = entry({
+      quantity: 500, customerPrice: som(65), workerPrice: som(45), unit: 'кг',
+      accepted: true, acceptedQuantity: 450, acceptedTotal: som(29_250),
+    });
+    expect(doneTotal([e])).toBe(som(32_500));
+    expect(acceptedTotal([e])).toBe(som(29_250));
+    expect(notAcceptedTotal([e])).toBe(som(3_250));
+  });
+});
+
+describe('Аванс заказчика', () => {
+  it('поступило больше принятого → остаток аванса, долга нет', () => {
+    const active = [entry({ quantity: 1, customerPrice: som(30_000), workerPrice: 0, accepted: true })];
+    const owed = customerOwes(active, [receipt({ amount: som(50_000), kind: 'advance' })], []);
+    expect(owed).toBe(som(-20_000));
+    expect(customerAdvanceLeft(owed)).toBe(som(20_000));
+    expect(customerAdvanceLeft(som(5_000))).toBe(0);
+  });
+});
+
+describe('Личные движения кассы', () => {
+  const move = (over: Partial<CashMove>): CashMove => ({
+    id: 'm', date: '2026-10-01', kind: 'draw', amount: 0, createdAt: 'x', ...over,
+  });
+
+  it('взял себе уменьшает кассу, вложил свои увеличивает, удалённые не считаются', () => {
+    const moves = [
+      move({ kind: 'draw', amount: som(20_000) }),
+      move({ kind: 'contribution', amount: som(50_000) }),
+      move({ kind: 'draw', amount: som(7_000), deletedAt: 'x' }),
+    ];
+    expect(cashMovesNet(moves)).toBe(som(30_000));
+    expect(cashBalance(0, [], [], [], moves)).toBe(som(30_000));
+    expect(cashBalance(som(1_000), [], [], [])).toBe(som(1_000));
+  });
+});
+
+describe('Стадия объекта', () => {
+  it('взял → работаем → сдаём → получаем → закрыл', () => {
+    const obj = {};
+    expect(objectStage(obj, [], [])).toBe('taken');
+    const work = entry({ quantity: 1, customerPrice: som(1_000), workerPrice: 0 });
+    expect(objectStage(obj, [work], [])).toBe('working');
+    const acc = { ...work, accepted: true };
+    expect(objectStage(obj, [acc], [])).toBe('handing');
+    expect(objectStage(obj, [acc], [receipt({ amount: som(500) })])).toBe('getting');
+    expect(objectStage(obj, [work], [receipt({ amount: som(500) })])).toBe('working');
+    expect(objectStage({ closedAt: 'x' }, [acc], [])).toBe('closed');
   });
 });

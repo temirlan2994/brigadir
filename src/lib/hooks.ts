@@ -4,7 +4,7 @@ import { db } from '../db/db';
 import { DEFAULT_SETTINGS } from '../db/repo';
 import type {
   CustomerAdjustment, Expense, Payout, Receipt, Settings,
-  SiteObject, WorkEntry, Worker, WorkType,
+  SiteObject, WorkEntry, Worker, WorkType, CashMove, Attendance,
 } from '../db/types';
 
 export function useSettings(): Settings {
@@ -48,6 +48,22 @@ export function useReceipts(): Receipt[] {
 
 export function useAdjustments(): CustomerAdjustment[] {
   return useLiveQuery(() => db.adjustments.toArray(), []) ?? [];
+}
+
+export function useCashMoves(): CashMove[] {
+  return useLiveQuery(() => db.cashMoves.toArray(), []) ?? [];
+}
+
+// Кто вышел на объект в этот день
+export function useAttendance(objectId: string | undefined, date: string): Attendance | undefined {
+  return useLiveQuery(
+    async () => (objectId ? await db.attendance.where({ objectId, date }).first() : undefined),
+    [objectId, date],
+  );
+}
+
+export function useObject(id: string | undefined): SiteObject | undefined {
+  return useLiveQuery(async () => (id ? await db.objects.get(id) : undefined), [id]);
 }
 
 // Фильтр по объекту

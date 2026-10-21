@@ -12,70 +12,83 @@ async function shot(page: Page, name: string) {
 test('скриншоты всех экранов', async ({ page }) => {
   test.setTimeout(180_000);
 
-  // Главная пустая
   await page.goto('/#/');
-  await expect(page.getByTestId('start-clean')).toBeVisible();
-  await shot(page, '01-glavnaya-pustaya');
+  await expect(page.getByTestId('start-new-object')).toBeVisible();
+  await shot(page, '01-privet');
 
-  // Демо-данные
+  await page.getByTestId('start-new-object').click();
+  await page.getByTestId('obj-name').fill('БЦ «Триумф»');
+  await page.getByTestId('obj-customer').fill('СтройКом');
+  await shot(page, '02-vzyal-obekt');
+  await page.getByTestId('obj-next-1').click();
+  await shot(page, '03-ceny');
+  await page.getByTestId('obj-next-2').click();
+  await page.getByTestId('team-name').fill('Азамат');
+  await shot(page, '04-brigada-start');
+  await page.goto('/#/');
+
   await loadDemo(page);
-  await shot(page, '02-glavnaya');
+  await shot(page, '05-segodnya');
 
-  // Мастер по шагам
   await page.getByTestId('btn-work').click();
-  await shot(page, '03-master-1-chto-sdelali');
+  await shot(page, '06-master-1-chto-sdelali');
   await page.getByTestId('wt-Сварка').click();
   await typeNum(page, '1200');
-  await shot(page, '04-master-2-skolko');
+  await shot(page, '07-master-2-skolko');
   await page.getByTestId('next-2').click();
-  await shot(page, '05-master-3-kto-rabotal');
-  // Отметить сварщиков, если не подставились из прошлой записи
   for (const name of ['Азамат', 'Нурлан']) {
     const btn = page.getByTestId(`worker-${name}`);
-    if (!(await btn.getAttribute('class'))?.includes('orange')) await btn.click();
+    if (!(await btn.getAttribute('class'))?.includes('amber')) await btn.click();
   }
+  await shot(page, '08-master-3-kto-rabotal');
   await page.getByTestId('next-3').click();
-  await shot(page, '06-master-4-prover');
+  await shot(page, '09-master-4-prover');
 
-  // Выдача
   await page.goto('/#/payout/new');
-  await shot(page, '07-vydacha-vybor');
+  await shot(page, '10-vydacha-vybor');
   await page.getByTestId('pick-Азамат').click();
   await typeNum(page, '5000');
-  await shot(page, '08-vydacha-summa');
+  await shot(page, '11-vydacha-summa');
 
-  // Расход
   await page.goto('/#/expense/new');
-  await shot(page, '09-rashod-kategorii');
+  await shot(page, '12-rashod-kategorii');
   await page.getByTestId('cat-transport').click();
   await typeNum(page, '3000');
-  await shot(page, '10-rashod-summa');
+  await shot(page, '13-rashod-summa');
 
-  // Поступление и приёмка
-  await page.goto('/#/receipt/new');
-  await shot(page, '11-postuplenie');
-  await page.getByTestId('to-accept').click();
-  await shot(page, '12-priyomka');
+  await page.goto('/#/objects');
+  await shot(page, '14-obekty');
+  await page.getByTestId('object-БЦ «Триумф»').click();
+  await shot(page, '15-obekt');
+  await page.getByTestId('menu-handover').click();
+  await shot(page, '16-sdacha');
+  await page.goBack();
+  await page.getByTestId('menu-money').click();
+  await shot(page, '17-dengi-zakazchika');
+  await page.goBack();
+  await page.getByTestId('menu-prices').click();
+  await shot(page, '18-ceny-i-zakazchik');
+  await page.goBack();
+  await page.getByTestId('menu-result').click();
+  await shot(page, '19-itog-obekta');
+  await page.goBack();
+  await page.getByTestId('menu-works').click();
+  await shot(page, '20-raboty');
 
-  // Рабочие и карточка с выпиской
-  await page.goto('/#/workers');
-  await shot(page, '13-rabochie');
+  await page.goto('/#/team');
+  await shot(page, '21-brigada');
   await page.getByTestId('worker-card-Азамат').click();
-  await shot(page, '14-kartochka-rabochego');
+  await shot(page, '22-rabochiy');
 
-  // Работы
-  await page.goto('/#/works');
-  await shot(page, '15-raboty');
+  await page.goto('/#/cash');
+  await shot(page, '23-kassa');
 
-  // Деньги
-  await page.goto('/#/money');
-  await shot(page, '16-dengi');
+  await page.goto('/#/attendance');
+  await shot(page, '24-kto-vyshel');
 
-  // Акт
   await page.goto('/#/act');
-  await shot(page, '17-akt');
+  await shot(page, '25-akt');
 
-  // Настройки
   await page.goto('/#/settings');
-  await shot(page, '18-nastroyki');
+  await shot(page, '26-nastroyki');
 });

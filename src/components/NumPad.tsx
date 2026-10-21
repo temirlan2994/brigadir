@@ -35,10 +35,10 @@ export function NumPad({ value, onChange }: {
           key={key}
           data-key={key}
           aria-label={key === 'erase' ? t('common.erase') : key}
-          className="flex min-h-[64px] items-center justify-center rounded-2xl bg-slate-100 text-[28px] font-medium active:bg-slate-200"
+          className="flex min-h-[58px] items-center justify-center rounded-[14px] bg-paper text-[26px] font-semibold active:bg-line"
           onClick={() => press(key)}
         >
-          {key === 'erase' ? <Delete size={28} aria-hidden="true" /> : key}
+          {key === 'erase' ? <Delete size={26} aria-hidden="true" /> : key}
         </button>
       ))}
     </div>

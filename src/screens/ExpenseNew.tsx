@@ -43,7 +43,7 @@ export function ExpenseNew() {
 
   if (!category) {
     return (
-      <div className="flex min-h-screen flex-col bg-slate-50">
+      <div className="flex min-h-screen flex-col bg-paper">
         <ScreenHeader title={t('expense.pickCategory')} />
         <div className="grid grid-cols-2 gap-3 px-4 py-3">
           {CATEGORIES.map((c) => (
@@ -55,7 +55,7 @@ export function ExpenseNew() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={`${t('home.spent')} · ${t(`expense.${category}`)}`} onBack={() => setCategory('')} />
       <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
         <div>

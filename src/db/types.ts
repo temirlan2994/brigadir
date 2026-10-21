@@ -18,9 +18,15 @@ export interface SiteObject {
   id: string;
   name: string;
   customerName?: string;
+  customerPhone?: string;
+  paymentTerms?: string; // как платит заказчик, своими словами
   createdAt: string;
   archivedAt?: string;
+  closedAt?: string; // объект закрыт: расчёты завершены
 }
+
+// Стадия объекта по данным: что уже произошло
+export type ObjectStage = 'taken' | 'working' | 'handing' | 'getting' | 'closed';
 
 export type Unit = 'м²' | 'м³' | 'кг' | 'т' | 'пог. м' | 'шт.' | 'точка' | 'смена' | 'час' | 'рейс';
 export type CalcKind = 'area' | 'none';
@@ -82,6 +88,9 @@ export interface WorkEntry {
   photoIds: string[];
   accepted: boolean;
   acceptedAt?: string;
+  acceptedQuantity?: number; // частичная приёмка: принятый объём
+  acceptedTotal?: Money; // acceptedQuantity × customerPrice
+  acceptNote?: string; // почему приняли не всё
   createdAt: string;
   version: number;
   supersedesId?: string;
@@ -128,9 +137,30 @@ export interface Receipt {
   date: string;
   amount: Money;
   method: PayMethod;
+  kind?: 'payment' | 'advance'; // аванс — деньги вперёд, до акта
   note?: string;
   createdAt: string;
   deletedAt?: string;
+}
+
+// Личные движения по кассе бригадира: взял себе / вложил свои
+export interface CashMove {
+  id: string;
+  date: string;
+  kind: 'draw' | 'contribution';
+  amount: Money;
+  note?: string;
+  createdAt: string;
+  deletedAt?: string;
+}
+
+// Кто сегодня вышел на объект
+export interface Attendance {
+  id: string;
+  objectId: string;
+  date: string;
+  workerIds: string[];
+  createdAt: string;
 }
 
 export type AdjustmentKind = 'retention' | 'penalty' | 'offset' | 'other';

@@ -1,5 +1,6 @@
+import { useSearchParams } from 'react-router-dom';
 import { useT, useLangStore, formatDateShort } from '../i18n';
-import { useActiveObject, useEntries, useWorkTypes, byObject } from '../lib/hooks';
+import { useActiveObject, useEntries, useWorkTypes, byObject, useObject } from '../lib/hooks';
 import { activeEntries } from '../core/calc';
 import { formatMoneyExact, formatQuantity } from '../core/format';
 import { todayStr } from '../db/repo';
@@ -11,17 +12,26 @@ import { wtLabel } from '../lib/summary';
 export function ActPrint() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
-  const activeObject = useActiveObject();
+  const [params] = useSearchParams();
+  const paramObject = useObject(params.get('objectId') ?? undefined);
+  const activeObjectHook = useActiveObject();
+  const activeObject = paramObject ?? activeObjectHook;
   const entries = useEntries();
   const workTypes = useWorkTypes();
 
+  // В акт идёт принятый объём (при частичной приёмке — принятая часть)
   const accepted = byObject(activeEntries(entries), activeObject?.id)
     .filter((e) => e.accepted)
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => ({
+      ...e,
+      actQuantity: e.acceptedQuantity ?? e.quantity,
+      actTotal: e.acceptedTotal ?? e.customerTotal,
+    }));
 
   const from = accepted[0]?.date;
   const to = accepted[accepted.length - 1]?.date;
-  const total = accepted.reduce((s, e) => s + e.customerTotal, 0);
+  const total = accepted.reduce((s, e) => s + e.actTotal, 0);
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -51,9 +61,9 @@ export function ActPrint() {
               <tr key={e.id}>
                 <td className="border border-black px-1.5 py-1">{wtLabel(workTypes.find((w) => w.id === e.workTypeId), lang)}</td>
                 <td className="border border-black px-1.5 py-1">{e.unit}</td>
-                <td className="border border-black px-1.5 py-1 text-right">{formatQuantity(e.quantity)}</td>
+                <td className="border border-black px-1.5 py-1 text-right">{formatQuantity(e.actQuantity)}</td>
                 <td className="border border-black px-1.5 py-1 text-right">{formatMoneyExact(e.customerPrice)}</td>
-                <td className="border border-black px-1.5 py-1 text-right">{formatMoneyExact(e.customerTotal)}</td>
+                <td className="border border-black px-1.5 py-1 text-right">{formatMoneyExact(e.actTotal)}</td>
               </tr>
             ))}
             <tr>

@@ -1,23 +1,29 @@
-// Главная кнопка действия: во всю ширину, не ниже 64 px.
-export function BigButton({ label, onClick, disabled, tone = 'primary', testId }: {
+import type { ReactNode } from 'react';
+
+// Главная кнопка действия: во всю ширину, не ниже 60 px.
+// primary — жёлтая (одно главное действие на экране), dark — чёрная, neutral — белая.
+export function BigButton({ label, onClick, disabled, tone = 'primary', testId, icon }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  tone?: 'primary' | 'neutral' | 'danger';
+  tone?: 'primary' | 'dark' | 'neutral' | 'danger';
   testId?: string;
+  icon?: ReactNode;
 }) {
   const tones = {
-    primary: 'bg-orange-500 text-white active:bg-orange-600',
-    neutral: 'bg-slate-100 text-slate-800 active:bg-slate-200',
-    danger: 'bg-red-600 text-white active:bg-red-700',
+    primary: 'bg-accent text-ink active:brightness-95',
+    dark: 'bg-dark text-white active:bg-slate-800',
+    neutral: 'bg-white text-ink border-[1.5px] border-line active:bg-paper',
+    danger: 'bg-money-out text-white active:brightness-95',
   };
   return (
     <button
       data-testid={testId}
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-[64px] w-full rounded-2xl text-[20px] font-semibold disabled:opacity-40 ${tones[tone]}`}
+      className={`flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[18px] px-4 text-[18px] font-bold disabled:opacity-40 ${tones[tone]}`}
     >
+      {icon}
       {label}
     </button>
   );

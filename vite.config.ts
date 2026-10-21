@@ -33,12 +33,27 @@ export default defineConfig({
         scope: base,
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#f8fafc',
-        theme_color: '#f97316',
+        background_color: '#f4f1ea',
+        theme_color: '#17191c',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        // Долгое нажатие на иконку приложения → сразу «Записать работу»
+        shortcuts: [
+          {
+            name: 'Записать работу',
+            short_name: 'Записать',
+            url: `${base}#/work/new`,
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Выдал рабочим',
+            short_name: 'Выдал',
+            url: `${base}#/payout/new`,
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
         ],
       },
       workbox: {

@@ -13,12 +13,12 @@ export function DatePick({ value, onChange }: {
   const isOther = value !== today && value !== yesterday;
 
   const btn = (active: boolean) =>
-    `min-h-[48px] flex-1 rounded-xl px-2 text-[16px] ${
-      active ? 'bg-white font-semibold shadow-sm' : 'text-slate-600'
+    `min-h-[46px] flex-1 rounded-[12px] px-2 text-[15px] ${
+      active ? 'bg-white font-bold shadow-sm' : 'font-semibold text-slate-600'
     }`;
 
   return (
-    <div className="flex gap-1 rounded-2xl bg-slate-100 p-1">
+    <div className="flex gap-1 rounded-[16px] bg-[#ece8df] p-1">
       <button className={btn(value === today)} onClick={() => onChange(today)}>
         {t('common.today')}
       </button>

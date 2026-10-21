@@ -3,6 +3,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
   Settings, SiteObject, WorkType, Rate, Worker, WorkEntry,
   Payout, Expense, Receipt, CustomerAdjustment, Photo, ChangeLog,
+  CashMove, Attendance,
 } from './types';
 
 export class ForemanDb extends Dexie {
@@ -18,10 +19,12 @@ export class ForemanDb extends Dexie {
   adjustments!: Table<CustomerAdjustment, string>;
   photos!: Table<Photo, string>;
   changeLog!: Table<ChangeLog, string>;
+  cashMoves!: Table<CashMove, string>;
+  attendance!: Table<Attendance, string>;
 
   constructor() {
     super('foremanDb');
-    this.version(1).stores({
+    const v1 = {
       settings: 'id',
       objects: 'id, createdAt',
       workTypes: 'id, sortOrder',
@@ -34,6 +37,13 @@ export class ForemanDb extends Dexie {
       adjustments: 'id, objectId, date, deletedAt',
       photos: 'id',
       changeLog: 'id, at, entityId',
+    };
+    this.version(1).stores(v1);
+    // v2: личные движения кассы и «кто вышел»
+    this.version(2).stores({
+      ...v1,
+      cashMoves: 'id, date, deletedAt',
+      attendance: 'id, objectId, date, [objectId+date]',
     });
   }
 }

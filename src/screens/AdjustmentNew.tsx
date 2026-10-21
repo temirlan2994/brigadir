@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '../i18n';
-import { useActiveObject } from '../lib/hooks';
+import { useActiveObject, useObject } from '../lib/hooks';
 import { somsToTyiyn } from '../core/format';
 import { addAdjustment, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
@@ -16,7 +16,10 @@ export function AdjustmentNew() {
   const t = useT();
   const navigate = useNavigate();
   const toast = useToast();
+  const [params] = useSearchParams();
   const activeObject = useActiveObject();
+  const paramObject = useObject(params.get('objectId') ?? undefined);
+  const object = paramObject ?? activeObject;
 
   const [kind, setKind] = useState<AdjustmentKind>('retention');
   const [amount, setAmount] = useState('');
@@ -25,36 +28,30 @@ export function AdjustmentNew() {
 
   async function save() {
     const tyiyn = somsToTyiyn(amount);
-    if (tyiyn <= 0 || !activeObject) return;
-    const row = await addAdjustment({
-      objectId: activeObject.id, date, kind, amount: tyiyn,
-      note: note.trim() || undefined,
-    });
+    if (tyiyn <= 0 || !object) return;
+    const row = await addAdjustment({ objectId: object.id, date, kind, amount: tyiyn, note: note.trim() || undefined });
     navigate(-1);
     toast.show(t('common.saved'), () => hardDelete('adjustments', row.id));
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <ScreenHeader title={t('receipt.adjustmentButton')} />
-      <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
-        <div>
-          <p className="pb-1 text-[14px] text-slate-500">{t('adjustment.kind')}</p>
-          <Segmented
-            options={[
-              { value: 'retention', label: t('adjustment.retention') },
-              { value: 'penalty', label: t('adjustment.penalty') },
-              { value: 'offset', label: t('adjustment.offset') },
-              { value: 'other', label: t('adjustment.other') },
-            ]}
-            value={kind}
-            onChange={setKind}
-          />
-        </div>
-
+    <div className="flex min-h-screen flex-col bg-paper">
+      <ScreenHeader title={t('customerMoney.withhold')} sub={object?.customerName ?? object?.name} />
+      <div className="flex flex-1 flex-col gap-3 px-4 pt-1">
+        <Segmented
+          options={[
+            { value: 'retention', label: t('adjustment.retention') },
+            { value: 'penalty', label: t('adjustment.penalty') },
+            { value: 'offset', label: t('adjustment.offset') },
+            { value: 'other', label: t('adjustment.other') },
+          ]}
+          value={kind}
+          onChange={setKind}
+        />
+        <p className="px-1 text-[14px] text-slate-500">{t('adjustment.hint')}</p>
         <DatePick value={date} onChange={setDate} />
         <input
-          className="min-h-[56px] w-full rounded-2xl border border-slate-200 px-3 text-[18px]"
+          className="min-h-[56px] w-full rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-[17px] font-medium"
           placeholder={t('common.note')}
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -63,7 +60,7 @@ export function AdjustmentNew() {
           label={t('common.sum')}
           value={amount}
           onChange={setAmount}
-          action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0, testId: 'save-adjustment' }}
+          action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0 || !object, testId: 'save-adjustment' }}
         />
       </div>
     </div>

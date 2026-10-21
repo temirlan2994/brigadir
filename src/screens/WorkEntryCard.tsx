@@ -7,7 +7,10 @@ import { formatMoney, formatQuantity } from '../core/format';
 import { acceptWorkEntries, restore, softDelete, unacceptWorkEntry } from '../db/repo';
 import { db } from '../db/db';
 import { useToast } from '../state/toast';
+import { useView } from '../state/view';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { BigButton } from '../components/BigButton';
+import { Card, KvRow, Pill } from '../components/ui';
 import { wtLabel } from '../lib/summary';
 import type { WorkEntry } from '../db/types';
 
@@ -21,6 +24,7 @@ export function WorkEntryCard() {
   const entries = useEntries();
   const workTypes = useWorkTypes();
   const workers = useWorkers();
+  const customerMode = useView((v) => v.customerMode);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [showVersions, setShowVersions] = useState(false);
 
@@ -44,8 +48,8 @@ export function WorkEntryCard() {
 
   const wt = workTypes.find((w) => w.id === entry.workTypeId);
   const supersededBy = entries.find((e) => e.supersedesId === entry.id && !e.deletedAt);
+  const isPartial = entry.accepted && entry.acceptedQuantity !== undefined && entry.acceptedQuantity < entry.quantity;
 
-  // Цепочка версий вниз от текущей
   const versions: WorkEntry[] = [];
   let cursor: WorkEntry | undefined = entry;
   while (cursor?.supersedesId) {
@@ -60,102 +64,87 @@ export function WorkEntryCard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col gap-3 bg-slate-50 pb-6">
-      <ScreenHeader title={wtLabel(wt, lang)} />
+    <div className="flex min-h-screen flex-col gap-3 bg-paper pb-6">
+      <ScreenHeader title={wtLabel(wt, lang)} sub={`${formatDateShort(entry.date, lang)} · ${t('works.version', { n: entry.version })}`} />
 
       {entry.deletedAt && (
-        <div className="mx-4 rounded-xl bg-slate-200 px-4 py-3 text-[16px]">
+        <div className="mx-4 flex items-center justify-between rounded-[14px] bg-[#ece8df] px-4 py-3 text-[15px] font-semibold">
           {t('common.deletedMark')}
-          <button className="ml-3 font-semibold text-orange-600" onClick={() => void restore('workEntries', entry.id)}>
-            {t('common.restore')}
-          </button>
+          <button className="font-bold underline" onClick={() => void restore('workEntries', entry.id)}>{t('common.restore')}</button>
         </div>
       )}
       {supersededBy && (
-        <button className="mx-4 rounded-xl bg-amber-100 px-4 py-3 text-left text-[15px]" onClick={() => navigate(`/works/${supersededBy.id}`, { replace: true })}>
-          {t('works.version', { n: supersededBy.version })} →
+        <button className="mx-4 rounded-[14px] bg-[#fff1d6] px-4 py-3 text-left text-[15px] font-semibold text-[#92400e]" onClick={() => navigate(`/works/${supersededBy.id}`, { replace: true })}>
+          {t('works.newerVersion', { n: supersededBy.version })} →
         </button>
       )}
 
-      <div className="mx-4 rounded-2xl bg-white p-4 shadow-sm">
-        <p className="text-[22px] font-bold">{formatQuantity(entry.quantity)} {entry.unit}</p>
-        <p className="text-[14px] text-slate-500">{formatDateShort(entry.date, lang)} · {t('works.version', { n: entry.version })}</p>
-        <div className="mt-2 flex justify-between text-[16px]">
-          <span className="text-slate-600">{t('wizard.customerTotal')}</span>
-          <span className="font-semibold text-money-in">{formatMoney(entry.customerTotal)}</span>
-        </div>
-        <div className="flex justify-between text-[16px]">
-          <span className="text-slate-600">{t('wizard.workersTotal')}</span>
-          <span className="font-semibold text-money-out">{formatMoney(entry.workersTotal)}</span>
-        </div>
-        <div className="flex justify-between text-[16px]">
-          <span className="text-slate-600">{t('wizard.diff')}</span>
-          <span className="font-semibold">{formatMoney(entry.customerTotal - entry.workersTotal)}</span>
-        </div>
-        {entry.accepted && (
-          <p className="mt-2 flex items-center gap-1 text-[15px] text-green-700">
-            <Check size={16} aria-hidden="true" /> {t('works.statusAccepted')}
-          </p>
+      <div className="mx-4 flex flex-col gap-3">
+        <Card>
+          <p className="text-[32px] font-black tracking-tight">{formatQuantity(entry.quantity)} <span className="text-[20px] font-bold text-slate-500">{entry.unit}</span></p>
+          <KvRow label={t('wizard.customerTotal')} value={formatMoney(entry.customerTotal)} tone="in" />
+          {!customerMode && <KvRow label={t('wizard.workersTotal')} value={formatMoney(entry.workersTotal)} tone="out" />}
+          {!customerMode && <KvRow label={t('wizard.diff')} value={formatMoney(entry.customerTotal - entry.workersTotal)} strong />}
+          <div className="pt-2">
+            {entry.accepted ? (
+              <Pill tone="green"><Check size={14} aria-hidden="true" /> {isPartial ? t('handover.partOf', { a: formatQuantity(entry.acceptedQuantity!), q: formatQuantity(entry.quantity) }) : t('works.statusAccepted')}</Pill>
+            ) : (
+              <Pill tone="grey">{t('works.statusNotAccepted')}</Pill>
+            )}
+          </div>
+          {entry.note && <p className="mt-2 text-[15px] text-slate-700">{entry.note}</p>}
+          {entry.acceptNote && <p className="mt-1 text-[14px] text-slate-500">{entry.acceptNote}</p>}
+        </Card>
+
+        {!customerMode && (
+          <Card>
+            <p className="pb-1 text-[13px] font-semibold text-slate-500">{t('wizard.whoHowMuch')}</p>
+            {entry.shares.map((s) => (
+              <div key={s.workerId} className="flex justify-between py-1 text-[16px]">
+                <span className="font-semibold">{workers.find((w) => w.id === s.workerId)?.name}</span>
+                <span className="font-bold">{formatMoney(s.amount)}</span>
+              </div>
+            ))}
+          </Card>
         )}
-        {entry.note && <p className="mt-2 text-[15px] text-slate-600">{entry.note}</p>}
-      </div>
 
-      <div className="mx-4 rounded-2xl bg-white p-4 shadow-sm">
-        <p className="pb-1 text-[14px] text-slate-500">{t('wizard.whoHowMuch')}</p>
-        {entry.shares.map((s) => (
-          <div key={s.workerId} className="flex justify-between py-1 text-[16px]">
-            <span>{workers.find((w) => w.id === s.workerId)?.name}</span>
-            <span className="font-semibold">{formatMoney(s.amount)}</span>
+        {photoUrls.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {photoUrls.map((u, i) => <img key={i} src={u} alt={t('common.photo')} className="h-24 w-24 rounded-[14px] object-cover" />)}
           </div>
-        ))}
-      </div>
+        )}
 
-      {photoUrls.length > 0 && (
-        <div className="mx-4 flex flex-wrap gap-2">
-          {photoUrls.map((u, i) => <img key={i} src={u} alt={t('common.photo')} className="h-24 w-24 rounded-xl object-cover" />)}
-        </div>
-      )}
-
-      {!entry.deletedAt && !supersededBy && (
-        <div className="mx-4 flex flex-col gap-2">
-          <div className="flex gap-2">
-            <button
-              className="min-h-[56px] flex-1 rounded-2xl bg-orange-500 text-[17px] font-semibold text-white"
-              onClick={() => navigate('/work/new', { state: { editId: entry.id } })}
-              data-testid="edit-entry"
-            >
-              {t('common.edit')}
-            </button>
-            <button
-              className="min-h-[56px] flex-1 rounded-2xl bg-slate-100 text-[17px] font-semibold"
-              onClick={() => {
-                if (entry.accepted) void unacceptWorkEntry(entry.id);
-                else void acceptWorkEntries([entry.id]);
-              }}
-              data-testid="toggle-accept"
-            >
-              {entry.accepted ? t('works.unaccept') : t('works.accept')}
-            </button>
-          </div>
-          <button className="min-h-[48px] rounded-2xl text-[16px] text-red-600" onClick={() => void remove()} data-testid="delete-entry">
-            {t('common.delete')}
-          </button>
-        </div>
-      )}
-
-      {versions.length > 0 && (
-        <div className="mx-4">
-          <button className="min-h-[48px] text-[15px] text-slate-500" onClick={() => setShowVersions(!showVersions)}>
-            {t('works.versions')} ({versions.length})
-          </button>
-          {showVersions && versions.map((v) => (
-            <div key={v.id} className="flex justify-between rounded-xl bg-slate-100 px-3 py-2 text-[15px] opacity-80">
-              <span>{t('works.version', { n: v.version })} · {formatQuantity(v.quantity)} {v.unit}</span>
-              <span>{formatMoney(v.customerTotal)}</span>
+        {!entry.deletedAt && !supersededBy && (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <BigButton label={t('common.edit')} tone="dark" onClick={() => navigate('/work/new', { state: { editId: entry.id } })} testId="edit-entry" />
+              <BigButton
+                label={entry.accepted ? t('works.unaccept') : t('works.accept')}
+                tone="neutral"
+                onClick={() => { if (entry.accepted) void unacceptWorkEntry(entry.id); else void acceptWorkEntries([entry.id]); }}
+                testId="toggle-accept"
+              />
             </div>
-          ))}
-        </div>
-      )}
+            <button className="min-h-[44px] text-[15px] font-semibold text-money-out" onClick={() => void remove()} data-testid="delete-entry">
+              {t('common.delete')}
+            </button>
+          </div>
+        )}
+
+        {versions.length > 0 && (
+          <div>
+            <button className="min-h-[44px] text-[14px] font-semibold text-slate-500" onClick={() => setShowVersions(!showVersions)}>
+              {t('works.versions')} ({versions.length})
+            </button>
+            {showVersions && versions.map((v) => (
+              <div key={v.id} className="mt-1 flex justify-between rounded-[12px] bg-[#ece8df] px-3 py-2 text-[14px] opacity-80">
+                <span>{t('works.version', { n: v.version })} · {formatQuantity(v.quantity)} {v.unit}</span>
+                <span>{formatMoney(v.customerTotal)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

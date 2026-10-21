@@ -48,7 +48,7 @@ export function PayoutNew() {
 
   if (!workerId) {
     return (
-      <div className="flex min-h-screen flex-col bg-slate-50">
+      <div className="flex min-h-screen flex-col bg-paper">
         <ScreenHeader title={t('payout.pickWorker')} />
         <div className="flex flex-col gap-2 px-4 py-3">
           {workers.filter((w) => !w.archivedAt).map((w) => {
@@ -77,7 +77,7 @@ export function PayoutNew() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={`${t('home.paidWorkers')} · ${worker?.name ?? ''}`} onBack={() => (params.get('workerId') ? navigate(-1) : setWorkerId(''))} />
       <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
         {balance > 0 && (

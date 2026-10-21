@@ -2,7 +2,7 @@
 import { db } from './db';
 import {
   addObject, addPayout, addExpense, addReceipt, addWorker, addWorkEntry,
-  nowIso, todayStr, uid, updateSettings, getSettings, upsertRate, acceptWorkEntries,
+  todayStr, uid, updateSettings, getSettings, upsertRate, acceptWorkEntries,
 } from './repo';
 import { splitShares } from '../core/calc';
 import { lineTotals } from '../core/calc';
@@ -70,21 +70,15 @@ export async function seedRatesForObject(objectId: string): Promise<void> {
   }
 }
 
-// «Начать с чистого»: пустой объект
-export async function startFresh(name: string): Promise<void> {
-  const obj = await addObject(name);
-  await seedRatesForObject(obj.id);
-  await updateSettings({ activeObjectId: obj.id });
-}
-
 interface DemoEntry {
   daysAgo: number; workType: string; quantity: number;
   workers: Worker[]; accepted: boolean;
 }
 
-// Демо-данные: объект БЦ «Триумф», 4 рабочих, 12 записей за две недели
+// Демо-данные: объект БЦ «Триумф», 4 рабочих, 12 записей за две недели,
+// плюс закрытый объект «Склад, Кант» с итогом
 export async function loadDemo(): Promise<void> {
-  const obj = await addObject('БЦ «Триумф»', 'СтройКом');
+  const obj = await addObject('БЦ «Триумф»', 'СтройКом', { paymentTerms: 'По акту, раз в неделю' });
   await seedRatesForObject(obj.id);
 
   const azamat = await addWorker('Азамат', 'сварщик');
@@ -158,8 +152,28 @@ export async function loadDemo(): Promise<void> {
     });
   }
 
-  await addReceipt({ objectId: obj.id, date: todayStr(-7), amount: som(40_000), method: 'transfer' });
-  await addReceipt({ objectId: obj.id, date: todayStr(-3), amount: som(20_000), method: 'cash' });
+  await addReceipt({ objectId: obj.id, date: todayStr(-7), amount: som(40_000), method: 'transfer', kind: 'payment' });
+  await addReceipt({ objectId: obj.id, date: todayStr(-3), amount: som(20_000), method: 'cash', kind: 'payment' });
+
+  // Закрытый объект: кладка 100 м² принята и оплачена, бригада рассчитана
+  const closed = await addObject('Склад, Кант', 'Частник', {
+    paymentTerms: 'Наличными после приёмки',
+    closedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+  });
+  await seedRatesForObject(closed.id);
+  const kladka = byName('Кладка');
+  const closedTotals = lineTotals(100, som(600), som(400));
+  const closedEntry = await addWorkEntry({
+    objectId: closed.id, workTypeId: kladka.id, date: todayStr(-40),
+    quantity: 100, unit: kladka.unit, customerPrice: som(600), workerPrice: som(400),
+    customerTotal: closedTotals.customerTotal, workersTotal: closedTotals.workersTotal,
+    shares: [{ workerId: bakyt.id, weight: 1, amount: closedTotals.workersTotal }],
+    splitMode: 'equal', photoIds: [], accepted: false,
+  });
+  await acceptWorkEntries([closedEntry.id]);
+  await addReceipt({ objectId: closed.id, date: todayStr(-32), amount: som(60_000), method: 'cash', kind: 'payment' });
+  await addPayout({ objectId: closed.id, workerId: bakyt.id, date: todayStr(-31), amount: som(40_000), method: 'cash', kind: 'payout' });
+  await addExpense({ objectId: closed.id, date: todayStr(-35), category: 'transport', amount: som(4_000), paidBy: 'contractor', photoIds: [] });
 
   // Начальный остаток кассы, чтобы «Свободно» было положительным
   const settings = await getSettings();
@@ -169,5 +183,3 @@ export async function loadDemo(): Promise<void> {
   });
 }
 
-// Служебное: отметка времени демо не нужна, но пригодится для выписки
-export const demoCreatedAt = nowIso;
