@@ -13,6 +13,7 @@ import { exportBackup, importBackup, isBackupFile } from '../db/backup';
 import { downloadText } from '../lib/files';
 import { somsToTyiyn, tyiynToSomsInput, parseDecimal } from '../core/format';
 import { useToast } from '../state/toast';
+import { useSw } from '../state/sw';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Segmented } from '../components/Segmented';
 import { NumSheet } from '../components/NumSheet';
@@ -109,6 +110,28 @@ export function SettingsScreen() {
     await ensureSeeded();
     setWipeInput(null);
     toast.show(t('common.deleted'));
+  }
+
+  // Ручная проверка обновлений. Без таймеров: update() разрешается в начале
+  // установки, так что installing/waiting сразу говорят, нашлась ли новая версия.
+  async function checkUpdates() {
+    const { reg, needRefresh } = useSw.getState();
+    if (needRefresh) return; // баннер «Обновить» уже показан
+    if (!reg) {
+      toast.show(t('update.checkFailed'));
+      return;
+    }
+    try {
+      await reg.update();
+    } catch {
+      toast.show(t('update.checkFailed'));
+      return;
+    }
+    if (reg.installing || reg.waiting) {
+      toast.show(t('update.downloading'));
+      return;
+    }
+    toast.show(t('update.latest'));
   }
 
   const rateOf = (workTypeId: string) => rates.find((r) => r.workTypeId === workTypeId);
@@ -311,6 +334,19 @@ export function SettingsScreen() {
         </button>
         <button className="mt-2 min-h-[48px] w-full rounded-xl text-[15px] text-red-600" onClick={() => setWipeInput('')} data-testid="wipe-all">
           {t('settings.wipe')}
+        </button>
+      </section>
+
+      {/* О приложении: версия и проверка обновлений */}
+      <section className={section}>
+        <h2 className={h2}>{t('settings.about')}</h2>
+        <p className="pb-2 text-[15px] text-slate-500">{t('settings.version', { v: __APP_VERSION__ })}</p>
+        <button
+          className="min-h-[48px] w-full rounded-xl bg-slate-100 text-[15px] font-semibold"
+          data-testid="check-updates"
+          onClick={() => void checkUpdates()}
+        >
+          {t('update.check')}
         </button>
       </section>
 

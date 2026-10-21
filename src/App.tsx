@@ -6,6 +6,7 @@ import { ensureSeeded } from './db/seed';
 import { useLangStore } from './i18n';
 import { BottomNav } from './components/BottomNav';
 import { Toast } from './components/Toast';
+import { UpdateBanner } from './components/UpdateBanner';
 import { Home } from './screens/Home';
 import { WorkWizard } from './screens/WorkWizard';
 import { PayoutNew } from './screens/PayoutNew';
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/act" element={<ActPrint />} />
         </Routes>
         <Toast />
+        <UpdateBanner />
       </div>
     </HashRouter>
   );
