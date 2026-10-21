@@ -7,8 +7,7 @@ import { formatMoney, somsToTyiyn, tyiynToSomsInput } from '../core/format';
 import { addPayout, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { NumPad } from '../components/NumPad';
-import { BigButton } from '../components/BigButton';
+import { NumPadPanel } from '../components/NumPadPanel';
 import { Segmented } from '../components/Segmented';
 import { DatePick } from '../components/DatePick';
 import { WorkerCircle } from '../components/WorkerCircle';
@@ -80,12 +79,7 @@ export function PayoutNew() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <ScreenHeader title={`${t('home.paidWorkers')} · ${worker?.name ?? ''}`} onBack={() => (params.get('workerId') ? navigate(-1) : setWorkerId(''))} />
-      <div className="flex flex-1 flex-col gap-3 px-4 pb-6 pt-2">
-        <p className="text-center">
-          <span className="text-[36px] font-bold" data-testid="payout-amount">{amount || '0'}</span>
-          <span className="ml-2 text-[20px] text-slate-500">{t('common.sum')}</span>
-        </p>
-
+      <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
         {balance > 0 && (
           <button
             data-testid="pay-all"
@@ -120,12 +114,12 @@ export function PayoutNew() {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <div className="mt-auto">
-          <NumPad value={amount} onChange={setAmount} />
-          <div className="mt-3">
-            <BigButton label={t('common.save')} disabled={somsToTyiyn(amount) <= 0} onClick={() => void save()} testId="save-payout" />
-          </div>
-        </div>
+        <NumPadPanel
+          label={t('common.sum')}
+          value={amount}
+          onChange={setAmount}
+          action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0, testId: 'save-payout' }}
+        />
       </div>
     </div>
   );

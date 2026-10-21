@@ -5,6 +5,8 @@
 /* Только светлая тема, основной шрифт 18 px */
 html {
   background: #e2e8f0;
+  /* Без «потянуть вниз — обновить» и резиновых отскоков, как в нативном приложении */
+  overscroll-behavior: none;
 }
 
 body {
@@ -13,6 +15,16 @@ body {
   font-size: 18px;
   color: #0f172a;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  /* Без выделения текста по долгому нажатию на кнопках и подписях */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button {

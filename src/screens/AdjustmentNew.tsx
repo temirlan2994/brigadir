@@ -6,8 +6,7 @@ import { somsToTyiyn } from '../core/format';
 import { addAdjustment, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { NumPad } from '../components/NumPad';
-import { BigButton } from '../components/BigButton';
+import { NumPadPanel } from '../components/NumPadPanel';
 import { Segmented } from '../components/Segmented';
 import { DatePick } from '../components/DatePick';
 import type { AdjustmentKind } from '../db/types';
@@ -38,12 +37,7 @@ export function AdjustmentNew() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <ScreenHeader title={t('receipt.adjustmentButton')} />
-      <div className="flex flex-1 flex-col gap-3 px-4 pb-6 pt-2">
-        <p className="text-center">
-          <span className="text-[36px] font-bold">{amount || '0'}</span>
-          <span className="ml-2 text-[20px] text-slate-500">{t('common.sum')}</span>
-        </p>
-
+      <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
         <div>
           <p className="pb-1 text-[14px] text-slate-500">{t('adjustment.kind')}</p>
           <Segmented
@@ -65,12 +59,12 @@ export function AdjustmentNew() {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <div className="mt-auto">
-          <NumPad value={amount} onChange={setAmount} />
-          <div className="mt-3">
-            <BigButton label={t('common.save')} disabled={somsToTyiyn(amount) <= 0} onClick={() => void save()} testId="save-adjustment" />
-          </div>
-        </div>
+        <NumPadPanel
+          label={t('common.sum')}
+          value={amount}
+          onChange={setAmount}
+          action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0, testId: 'save-adjustment' }}
+        />
       </div>
     </div>
   );

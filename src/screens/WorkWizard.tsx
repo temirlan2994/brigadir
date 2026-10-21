@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Minus, Plus } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
-import { useActiveObject, useEntries, useWorkers, useWorkTypes } from '../lib/hooks';
+import { db } from '../db/db';
+import { useActiveObject, useWorkers, useWorkTypes } from '../lib/hooks';
 import { useDraft } from '../state/draft';
 import { activeEntries, calcArea, lineTotals, splitShares } from '../core/calc';
 import { formatMoney, parseDecimal, somsToTyiyn, tyiynToSomsInput, formatQuantity } from '../core/format';
@@ -10,7 +12,7 @@ import { addWorker, addWorkEntry, getRate, hardDelete, reviseWorkEntry, todayStr
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ProgressDots } from '../components/ProgressDots';
-import { NumPad } from '../components/NumPad';
+import { NumPadPanel } from '../components/NumPadPanel';
 import { Tile } from '../components/Tile';
 import { BigButton } from '../components/BigButton';
 import { Segmented } from '../components/Segmented';
@@ -22,46 +24,44 @@ import type { WorkEntry } from '../db/types';
 
 const STEP_COUNT = 4;
 
-// Мастер «Сделали работу»: один вопрос на экран
+function historyIdx(): number {
+  return (window.history.state as { idx?: number } | null)?.idx ?? 0;
+}
+
+// Мастер «Сделали работу»: один вопрос на экран.
+// Шаг лежит в адресе (?step=N), поэтому системная кнопка «Назад»
+// ходит по шагам и не стирает черновик.
 export function WorkWizard() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { draft, step, set, setStep, reset } = useDraft();
+  const { draft, set, reset } = useDraft();
+  const [searchParams] = useSearchParams();
+  const step = Math.min(STEP_COUNT - 1, Math.max(0, Number(searchParams.get('step') ?? '0') || 0));
   const workTypes = useWorkTypes();
   const workers = useWorkers();
-  const entries = useEntries();
   const activeObject = useActiveObject();
+  const entriesRaw = useLiveQuery(() => db.workEntries.toArray(), []);
+  const entries = useMemo(() => entriesRaw ?? [], [entriesRaw]);
   const [showAll, setShowAll] = useState(false);
-  const [focus, setFocus] = useState('quantity');
+  const [focus, setFocus] = useState('');
   const [newWorkerName, setNewWorkerName] = useState<string | null>(null);
   const [ratePrices, setRatePrices] = useState<{ customer: string; worker: string }>({ customer: '', worker: '' });
+  const [ready, setReady] = useState(false);
+  const entryIdxRef = useRef(0);
 
-  const editEntry = (location.state as { editId?: string } | null)?.editId
-    ? entries.find((e) => e.id === (location.state as { editId: string }).editId)
-    : undefined;
+  const editId = (location.state as { editId?: string } | null)?.editId;
+  const editEntry = editId ? entries.find((e) => e.id === editId) : undefined;
+  const isEdit = Boolean(editId && editEntry);
 
   const lastEntry = useMemo(() => {
     const act = activeEntries(entries).filter((e) => e.objectId === activeObject?.id);
     return act.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   }, [entries, activeObject]);
 
-  // Инициализация черновика
-  useEffect(() => {
-    if (editEntry) {
-      prefillFromEntry(editEntry, true);
-    } else {
-      reset({
-        date: todayStr(),
-        workerIds: lastEntry ? lastEntry.shares.map((s) => s.workerId) : [],
-      }, 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function prefillFromEntry(e: WorkEntry, isEdit: boolean) {
+  function prefillFromEntry(e: WorkEntry, forEdit: boolean) {
     const shiftInputs: Record<string, string> = {};
     const manualInputs: Record<string, string> = {};
     for (const s of e.shares) {
@@ -69,7 +69,7 @@ export function WorkWizard() {
       manualInputs[s.workerId] = tyiynToSomsInput(s.amount);
     }
     reset({
-      editId: isEdit ? e.id : undefined,
+      editId: forEdit ? e.id : undefined,
       workTypeId: e.workTypeId,
       quantityInput: String(e.quantity).replace('.', ','),
       customerPriceInput: tyiynToSomsInput(e.customerPrice),
@@ -78,13 +78,59 @@ export function WorkWizard() {
       splitMode: e.splitMode,
       shiftInputs: e.splitMode === 'shifts' ? shiftInputs : {},
       manualInputs: e.splitMode === 'manual' ? manualInputs : {},
-      date: isEdit ? e.date : todayStr(),
-      note: isEdit ? (e.note ?? '') : '',
-      photoIds: isEdit ? e.photoIds : [],
-    }, 3);
+      date: forEdit ? e.date : todayStr(),
+      note: forEdit ? (e.note ?? '') : '',
+      photoIds: forEdit ? e.photoIds : [],
+    });
   }
 
+  // Инициализация после загрузки записей (иначе гонка: правка и «участники
+  // прошлой записи» подставлялись бы из пустого списка)
+  useEffect(() => {
+    if (ready || entriesRaw === undefined) return;
+    entryIdxRef.current = historyIdx();
+    if (editId) {
+      const e = entriesRaw.find((x) => x.id === editId);
+      if (e) {
+        prefillFromEntry(e, true);
+        navigate('?step=3', { replace: true, state: location.state });
+      } else {
+        reset({ date: todayStr() });
+      }
+    } else {
+      reset({
+        date: todayStr(),
+        workerIds: lastEntry ? lastEntry.shares.map((s) => s.workerId) : [],
+      });
+      if (step !== 0) navigate('?step=0', { replace: true });
+    }
+    setReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entriesRaw, ready]);
+
   const workType = workTypes.find((w) => w.id === draft.workTypeId);
+  const selectedWorkers = workers.filter((w) => draft.workerIds.includes(w.id));
+
+  // Фокус нампада всегда соответствует текущему шагу
+  useEffect(() => {
+    if (step === 1) {
+      setFocus(draft.areaMode ? 'length' : 'quantity');
+    } else if (step === 2 && draft.splitMode === 'manual') {
+      setFocus(draft.workerIds[0] ? `manual:${draft.workerIds[0]}` : '');
+    } else {
+      setFocus('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  function goStep(n: number) {
+    navigate(`?step=${n}`, { state: location.state });
+  }
+
+  function back() {
+    if (historyIdx() === 0) navigate('/', { replace: true });
+    else navigate(-1);
+  }
 
   async function pickWorkType(id: string) {
     const rate = activeObject ? await getRate(activeObject.id, id) : undefined;
@@ -92,8 +138,7 @@ export function WorkWizard() {
     const worker = rate ? tyiynToSomsInput(rate.workerPrice) : '';
     setRatePrices({ customer, worker });
     set({ workTypeId: id, customerPriceInput: customer, workerPriceInput: worker });
-    setFocus('quantity');
-    setStep(1);
+    goStep(1);
   }
 
   // Количество: из размеров или из нампада
@@ -105,8 +150,6 @@ export function WorkWizard() {
   const workerPrice = somsToTyiyn(draft.workerPriceInput);
   const totals = lineTotals(quantity, customerPrice, workerPrice);
   const priceChanged = draft.customerPriceInput !== ratePrices.customer || draft.workerPriceInput !== ratePrices.worker;
-
-  const selectedWorkers = workers.filter((w) => draft.workerIds.includes(w.id));
 
   // Кому сколько
   const shares = useMemo(() => {
@@ -148,29 +191,28 @@ export function WorkWizard() {
       splitMode: draft.splitMode,
       note: note || undefined,
       photoIds: draft.photoIds,
-      accepted: draft.editId ? (editEntry?.accepted ?? false) : false,
-      acceptedAt: draft.editId ? editEntry?.acceptedAt : undefined,
+      accepted: isEdit ? (editEntry?.accepted ?? false) : false,
+      acceptedAt: isEdit ? editEntry?.acceptedAt : undefined,
     };
-    const saved = draft.editId
-      ? await reviseWorkEntry(draft.editId, data)
+    const saved = isEdit
+      ? await reviseWorkEntry(editId!, data)
       : await addWorkEntry(data);
     if (draft.rememberRate && priceChanged) {
       await upsertRate(activeObject.id, workType.id, customerPrice, workerPrice);
     }
-    navigate('/');
+    // Назад по иерархии: снимаем все шаги мастера (и устаревшую карточку при правке)
+    const idx = historyIdx();
+    const delta = idx - entryIdxRef.current + 1 + (isEdit ? 1 : 0);
+    if (idx >= delta) navigate(-delta);
+    else navigate('/', { replace: true });
     toast.show(t('common.saved'), () => hardDelete('workEntries', saved.id));
-  }
-
-  function back() {
-    if (step === 0 || (draft.editId && step === 3)) navigate(-1);
-    else setStep(step - 1);
   }
 
   const favorites = workTypes.filter((w) => w.isFavorite && !w.archivedAt);
   const others = workTypes.filter((w) => !w.isFavorite && !w.archivedAt);
   const visibleOthers = showAll ? others : others.slice(0, 6);
 
-  // Значение активного поля нампада на шаге «Сколько?»
+  // Значение активного поля нампада
   function focusValue(): string {
     if (focus === 'quantity') return draft.quantityInput;
     if (focus === 'length') return draft.lengthInput;
@@ -198,6 +240,27 @@ export function WorkWizard() {
     }
   }
 
+  // Подпись активного поля для панели нампада
+  function focusLabel(): string {
+    if (focus === 'length') return t('wizard.length');
+    if (focus === 'height') return t('wizard.height');
+    if (focus.startsWith('opening')) return t('wizard.openings');
+    if (focus === 'customerPrice') return t('wizard.customerPrice');
+    if (focus === 'workerPrice') return t('wizard.workerPrice');
+    if (focus.startsWith('manual:')) return workers.find((w) => w.id === focus.slice(7))?.name ?? '';
+    return workType ? `${wtLabel(workType, lang)} · ${workType.unit}` : '';
+  }
+
+  function toggleWorker(id: string) {
+    const removing = draft.workerIds.includes(id);
+    const nextIds = removing ? draft.workerIds.filter((x) => x !== id) : [...draft.workerIds, id];
+    set({ workerIds: nextIds });
+    if (draft.splitMode === 'manual') {
+      if (removing && focus === `manual:${id}`) setFocus(nextIds[0] ? `manual:${nextIds[0]}` : '');
+      if (!removing && nextIds.length === 1) setFocus(`manual:${id}`);
+    }
+  }
+
   const chip = (active: boolean) =>
     `rounded-xl border px-3 py-2 text-[18px] min-h-[48px] ${
       active ? 'border-orange-500 bg-orange-50 font-semibold' : 'border-slate-300 bg-white'
@@ -207,7 +270,7 @@ export function WorkWizard() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      <ScreenHeader title={draft.editId ? t('wizard.editTitle') : titles[step]} onBack={back} />
+      <ScreenHeader title={isEdit ? t('wizard.editTitle') : titles[step]} onBack={back} />
       <ProgressDots total={STEP_COUNT} current={step} />
 
       {/* Шаг 1: Что сделали? */}
@@ -219,29 +282,15 @@ export function WorkWizard() {
                 icon="gear"
                 label={t('wizard.likeYesterday')}
                 sub={wtLabel(workTypes.find((w) => w.id === lastEntry.workTypeId), lang)}
-                onClick={() => { prefillFromEntry(lastEntry, false); }}
+                onClick={() => { prefillFromEntry(lastEntry, false); goStep(3); }}
                 testId="like-yesterday"
               />
             )}
             {favorites.map((w) => (
-              <Tile
-                key={w.id}
-                icon={w.icon}
-                label={wtLabel(w, lang)}
-                sub={w.unit}
-                onClick={() => void pickWorkType(w.id)}
-                testId={`wt-${w.nameRu}`}
-              />
+              <Tile key={w.id} icon={w.icon} label={wtLabel(w, lang)} sub={w.unit} onClick={() => void pickWorkType(w.id)} testId={`wt-${w.nameRu}`} />
             ))}
             {visibleOthers.map((w) => (
-              <Tile
-                key={w.id}
-                icon={w.icon}
-                label={wtLabel(w, lang)}
-                sub={w.unit}
-                onClick={() => void pickWorkType(w.id)}
-                testId={`wt-${w.nameRu}`}
-              />
+              <Tile key={w.id} icon={w.icon} label={wtLabel(w, lang)} sub={w.unit} onClick={() => void pickWorkType(w.id)} testId={`wt-${w.nameRu}`} />
             ))}
           </div>
           {!showAll && others.length > 6 && (
@@ -254,7 +303,7 @@ export function WorkWizard() {
 
       {/* Шаг 2: Сколько? */}
       {step === 1 && workType && (
-        <div className="flex flex-1 flex-col px-4 pb-6">
+        <div className="flex flex-1 flex-col px-4">
           {workType.calc === 'area' && (
             <label className="flex min-h-[48px] items-center gap-2 text-[16px]">
               <input
@@ -323,18 +372,18 @@ export function WorkWizard() {
             </label>
           )}
 
-          <div className="mt-auto">
-            <NumPad value={focusValue()} onChange={setFocusValue} />
-            <div className="mt-3">
-              <BigButton label={t('common.next')} disabled={quantity <= 0} onClick={() => setStep(2)} testId="next-2" />
-            </div>
-          </div>
+          <NumPadPanel
+            label={focusLabel()}
+            value={focusValue()}
+            onChange={setFocusValue}
+            action={{ label: t('common.next'), onClick: () => goStep(2), disabled: quantity <= 0, testId: 'next-2' }}
+          />
         </div>
       )}
 
       {/* Шаг 3: Кто работал? */}
       {step === 2 && (
-        <div className="flex flex-1 flex-col px-4 pb-6">
+        <div className="flex flex-1 flex-col px-4">
           <div className="grid grid-cols-2 gap-2">
             {workers.filter((w) => !w.archivedAt).map((w) => {
               const selected = draft.workerIds.includes(w.id);
@@ -345,11 +394,7 @@ export function WorkWizard() {
                   className={`flex min-h-[64px] items-center gap-2 rounded-2xl border px-3 ${
                     selected ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-white'
                   }`}
-                  onClick={() => set({
-                    workerIds: selected
-                      ? draft.workerIds.filter((id) => id !== w.id)
-                      : [...draft.workerIds, w.id],
-                  })}
+                  onClick={() => toggleWorker(w.id)}
                 >
                   <WorkerCircle worker={w} size={40} />
                   <span className="truncate text-[16px]">{w.name}</span>
@@ -397,7 +442,11 @@ export function WorkWizard() {
                 { value: 'manual', label: t('wizard.splitManual') },
               ]}
               value={draft.splitMode}
-              onChange={(v) => set({ splitMode: v })}
+              onChange={(v) => {
+                set({ splitMode: v });
+                if (v === 'manual') setFocus(draft.workerIds[0] ? `manual:${draft.workerIds[0]}` : '');
+                else setFocus('');
+              }}
             />
           </div>
 
@@ -428,26 +477,34 @@ export function WorkWizard() {
             </div>
           )}
 
-          {draft.splitMode === 'manual' && (
-            <div className="mt-3">
-              <div className="flex flex-col gap-2">
-                {selectedWorkers.map((w) => (
-                  <button key={w.id} className={`flex items-center justify-between ${chip(focus === `manual:${w.id}`)}`} onClick={() => setFocus(`manual:${w.id}`)}>
-                    <span>{w.name}</span>
-                    <span className="font-semibold">{draft.manualInputs[w.id] || '0'}</span>
-                  </button>
-                ))}
-              </div>
-              <p className={`py-2 text-center text-[16px] ${manualRemainder === 0 ? 'text-slate-500' : 'text-money-out font-semibold'}`}>
-                {t('wizard.remainder', { sum: formatMoney(manualRemainder) })}
-              </p>
-              <NumPad value={focusValue()} onChange={setFocusValue} />
+          {draft.splitMode === 'manual' && selectedWorkers.length > 0 && (
+            <div className="mt-3 flex flex-col gap-2">
+              {selectedWorkers.map((w) => (
+                <button key={w.id} className={`flex items-center justify-between ${chip(focus === `manual:${w.id}`)}`} onClick={() => setFocus(`manual:${w.id}`)}>
+                  <span>{w.name}</span>
+                  <span className="font-semibold">{draft.manualInputs[w.id] || '0'}</span>
+                </button>
+              ))}
             </div>
           )}
 
-          <div className="mt-auto pt-3">
-            <BigButton label={t('common.next')} disabled={draft.workerIds.length === 0} onClick={() => setStep(3)} testId="next-3" />
-          </div>
+          {draft.splitMode === 'manual' && selectedWorkers.length > 0 ? (
+            <NumPadPanel
+              label={focusLabel()}
+              value={focusValue()}
+              onChange={setFocusValue}
+              hint={
+                <p className={`pb-2 text-center text-[15px] ${manualRemainder === 0 ? 'text-slate-500' : 'text-money-out font-semibold'}`}>
+                  {t('wizard.remainder', { sum: formatMoney(manualRemainder) })}
+                </p>
+              }
+              action={{ label: t('common.next'), onClick: () => goStep(3), disabled: draft.workerIds.length === 0, testId: 'next-3' }}
+            />
+          ) : (
+            <div className="mt-auto pb-4 pt-3">
+              <BigButton label={t('common.next')} disabled={draft.workerIds.length === 0} onClick={() => goStep(3)} testId="next-3" />
+            </div>
+          )}
         </div>
       )}
 
