@@ -1,6 +1,6 @@
 // Сквозной сценарий «Самат» по пути бригадира: взял объект → бригада → работа → сдача → деньги.
 import { test, expect } from '@playwright/test';
-import { startWithObject, recordWelding, typeNum } from './helpers';
+import { startWithObject, recordWelding, typeNum, loadDemo } from './helpers';
 
 test('сценарий «Самат»: от нового объекта до кассы 37 000', async ({ page }) => {
   await startWithObject(page, ['Азамат', 'Нурлан']);
@@ -141,6 +141,40 @@ test('перекличка подставляет бригаду в запись
   await page.getByTestId('next-2').click();
   await expect(page.getByTestId('worker-Бакыт')).toHaveClass(/amber/);
   await expect(page.getByTestId('worker-Азамат')).not.toHaveClass(/amber/);
+});
+
+test('своя дата выбирается через календарь', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await page.getByTestId('btn-receipt').click();
+  await page.getByTestId('date-input').fill('2026-10-01');
+  await expect(page.getByText('1 окт')).toBeVisible();
+  await typeNum(page, '1000');
+  await page.getByTestId('save-receipt').click();
+  await expect(page.getByTestId('btn-work')).toBeVisible();
+});
+
+test('удаление всех данных ведёт на приветствие', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await page.goto('/#/settings');
+  await page.getByTestId('wipe-all').click();
+  await page.getByTestId('wipe-word').fill('удалить');
+  await page.getByTestId('wipe-confirm').click();
+  await expect(page.getByTestId('start-new-object')).toBeVisible();
+});
+
+test('расходы и выдачи видны по каждому объекту отдельно', async ({ page }) => {
+  await loadDemo(page);
+  // Внутри объекта: мои расходы и выдачи только этого объекта
+  await page.goto('/#/objects');
+  await page.getByTestId('object-БЦ «Триумф»').click();
+  await page.getByTestId('menu-expenses').click();
+  await expect(page.getByText('−11 500 сом')).toBeVisible();
+  await expect(page.getByText('−50 000 сом')).toBeVisible();
+  // В кассе: фильтр по закрытому объекту прячет чужие записи
+  await page.goto('/#/cash');
+  await page.getByTestId('cash-object-filter').selectOption({ label: 'Склад, Кант' });
+  await expect(page.getByText('Кладка · 100 м²')).toBeVisible();
+  await expect(page.getByText('Питание')).toHaveCount(0);
 });
 
 test('закрытие объекта показывает итог', async ({ page }) => {

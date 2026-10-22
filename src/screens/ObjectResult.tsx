@@ -80,6 +80,10 @@ export function ObjectResult() {
           </Card>
         )}
 
+        <button className="min-h-[48px] rounded-[14px] bg-white text-[15px] font-bold text-slate-700 shadow-card" onClick={() => navigate(`/objects/${id}/expenses`)}>
+          {t('result.lists')} →
+        </button>
+
         <div className="grid grid-cols-2 gap-2">
           <BigButton label={t('handover.buildAct')} tone="neutral" icon={<FileText size={20} aria-hidden="true" />} onClick={() => navigate(`/act?objectId=${id}`)} />
           <BigButton label={t('result.send')} tone="neutral" icon={<Send size={20} aria-hidden="true" />} onClick={() => void report()} />

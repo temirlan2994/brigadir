@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
 import { useSettings, useWorkTypes } from '../lib/hooks';
@@ -24,6 +25,7 @@ const UNITS: Unit[] = ['м²', 'м³', 'кг', 'т', 'пог. м', 'шт.', 'т�
 export function SettingsScreen() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
+  const navigate = useNavigate();
   const toast = useToast();
   const settings = useSettings();
   const workTypes = useWorkTypes();
@@ -76,6 +78,8 @@ export function SettingsScreen() {
     await ensureSeeded();
     setWipeInput(null);
     toast.show(t('common.deleted'));
+    // После очистки — на приветствие, чтобы сразу начать с объекта
+    navigate('/', { replace: true });
   }
 
   async function checkUpdates() {
@@ -172,9 +176,13 @@ export function SettingsScreen() {
           <p className="px-1 text-[15px] text-slate-500">{t('settings.version', { v: __APP_VERSION__ })}</p>
           <BigButton label={t('update.check')} tone="neutral" onClick={() => void checkUpdates()} testId="check-updates" />
           <BigButton label={t('settings.loadDemo')} tone="neutral" onClick={() => void loadDemo().then(() => toast.show(t('common.saved')))} />
-          <button className="min-h-[48px] text-[15px] font-semibold text-money-out" onClick={() => setWipeInput('')} data-testid="wipe-all">
-            {t('settings.wipe')}
-          </button>
+        </Card>
+
+        {/* Начать с нуля — заметной кнопкой, с подтверждением словом */}
+        <SectionTitle>{t('settings.danger')}</SectionTitle>
+        <Card className="!p-3">
+          <p className="px-1 pb-2 text-[13px] text-slate-500">{t('settings.wipeHint')}</p>
+          <BigButton label={t('settings.wipe')} tone="danger" onClick={() => setWipeInput('')} testId="wipe-all" />
         </Card>
       </div>
 

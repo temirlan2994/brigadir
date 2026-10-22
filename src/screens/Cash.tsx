@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import { useT, useLangStore, formatDateShort, translate } from '../i18n';
@@ -15,7 +16,8 @@ export function Cash() {
   const lang = useLangStore((s) => s.lang);
   const navigate = useNavigate();
   const sum = useHomeSummary();
-  const feed = useFeed(30);
+  const [filterObjectId, setFilterObjectId] = useState('');
+  const feed = useFeed(30, filterObjectId || undefined);
   const objects = useObjects();
   const workers = useWorkers();
   const workTypes = useWorkTypes();
@@ -93,6 +95,16 @@ export function Cash() {
         </div>
 
         <SectionTitle>{t('cash.recent')}</SectionTitle>
+        <select
+          className="min-h-[48px] w-full min-w-0 rounded-[14px] border-[1.5px] border-line bg-white px-3 text-[16px] font-semibold"
+          aria-label={t('cash.filterAll')}
+          data-testid="cash-object-filter"
+          value={filterObjectId}
+          onChange={(e) => setFilterObjectId(e.target.value)}
+        >
+          <option value="">{t('cash.filterAll')}</option>
+          {objects.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
         {feed.map((row) => (
           <button key={row.key} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(row.to)}>
             <Tag kind={row.tagKind} label={t(row.typeKey)} />

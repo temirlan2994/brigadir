@@ -14,6 +14,7 @@ import { ObjectScreen } from './screens/ObjectScreen';
 import { ObjectWorks } from './screens/ObjectWorks';
 import { Handover } from './screens/Handover';
 import { CustomerMoney } from './screens/CustomerMoney';
+import { ObjectMoneyOut } from './screens/ObjectMoneyOut';
 import { ObjectPrices } from './screens/ObjectPrices';
 import { ObjectResult } from './screens/ObjectResult';
 import { CloseObject } from './screens/CloseObject';
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/objects/:id/works" element={<ObjectWorks />} />
           <Route path="/objects/:id/handover" element={<Handover />} />
           <Route path="/objects/:id/money" element={<CustomerMoney />} />
+          <Route path="/objects/:id/expenses" element={<ObjectMoneyOut />} />
           <Route path="/objects/:id/prices" element={<ObjectPrices />} />
           <Route path="/objects/:id/result" element={<ObjectResult />} />
           <Route path="/objects/:id/close" element={<CloseObject />} />

@@ -49,6 +49,7 @@ export function ObjectScreen() {
         <MenuRow icon="hammer" title={t('object.works')} sub={t('object.worksSub', { n: s.active.length, date: lastDate ? formatDateShort(lastDate, lang) : '—' })} onClick={() => navigate(`/objects/${o.id}/works`)} testId="menu-works" />
         <MenuRow icon="clip" title={t('object.handover')} sub={t('object.handoverSub', { n: s.unacceptedEntries.length })} onClick={() => navigate(`/objects/${o.id}/handover`)} testId="menu-handover" />
         <MenuRow icon="sack" title={t('object.customerMoney')} sub={t('object.customerMoneySub', { n: s.objReceipts.length, w: s.objAdjustments.length })} onClick={() => navigate(`/objects/${o.id}/money`)} testId="menu-money" />
+        <MenuRow icon="truck" title={t('object.myMoney')} sub={t('object.myMoneySub', { e: formatMoney(s.contractorExp), p: formatMoney(s.workersSum) })} onClick={() => navigate(`/objects/${o.id}/expenses`)} testId="menu-expenses" />
         <MenuRow icon="tag" title={t('object.prices')} sub={o.customerName ?? t('newObject.customer')} onClick={() => navigate(`/objects/${o.id}/prices`)} testId="menu-prices" />
         <MenuRow
           icon="flag"
