@@ -8,6 +8,7 @@ import { addPayout, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { NumPadPanel } from '../components/NumPadPanel';
+import { AmountHero } from '../components/AmountHero';
 import { Segmented } from '../components/Segmented';
 import { DatePick } from '../components/DatePick';
 import { WorkerCircle } from '../components/WorkerCircle';
@@ -27,6 +28,8 @@ export function PayoutNew() {
 
   const [workerId, setWorkerId] = useState(params.get('workerId') ?? '');
   const [amount, setAmount] = useState('');
+  // «Выдать всё» подставляет сумму выделенной: первая цифра её заменит
+  const [fresh, setFresh] = useState(false);
   const [kind, setKind] = useState<PayoutKind>('payout');
   const [method, setMethod] = useState<PayMethod>('cash');
   const [date, setDate] = useState(todayStr());
@@ -95,11 +98,12 @@ export function PayoutNew() {
     <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={`${t('home.paidWorkers')} · ${worker?.name ?? ''}`} onBack={() => (params.get('workerId') ? navigate(-1) : setWorkerId(''))} />
       <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
+        <AmountHero label={t('common.sum')} value={amount} suffix="сом" fresh={fresh} />
         {balance > 0 && (
           <button
             data-testid="pay-all"
             className="min-h-[48px] rounded-xl bg-slate-100 px-3 text-[16px]"
-            onClick={() => setAmount(tyiynToSomsInput(balance))}
+            onClick={() => { setAmount(tyiynToSomsInput(balance)); setFresh(true); }}
           >
             {t('payout.payAll')} · {formatMoney(balance)}
           </button>
@@ -130,9 +134,10 @@ export function PayoutNew() {
           onChange={(e) => setNote(e.target.value)}
         />
         <NumPadPanel
-          label={t('common.sum')}
           value={amount}
           onChange={setAmount}
+          fresh={fresh}
+          onFreshUsed={() => setFresh(false)}
           action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0, testId: 'save-payout' }}
         />
       </div>

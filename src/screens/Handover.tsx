@@ -11,7 +11,8 @@ import { useToast } from '../state/toast';
 import { useView } from '../state/view';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
-import { NumSheet } from '../components/NumSheet';
+import { NumField } from '../components/NumField';
+import { PlanSchedule } from '../components/PlanSchedule';
 import { CustomerModeButton } from '../components/CustomerModeButton';
 import type { WorkEntry } from '../db/types';
 
@@ -28,7 +29,8 @@ export function Handover() {
   const customerMode = useView((v) => v.customerMode);
   const [tab, setTab] = useState<'pending' | 'accepted'>('pending');
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [partial, setPartial] = useState<WorkEntry | null>(null);
+  // Частичная приёмка: сколько приняли — печатается прямо под строкой работы
+  const [partial, setPartial] = useState<{ id: string; value: string } | null>(null);
 
   // В «не принято» и то, что принято частично: остаток ещё надо сдать
   const remainder = (e: WorkEntry) => e.customerTotal - (e.accepted ? (e.acceptedTotal ?? e.customerTotal) : 0);
@@ -76,8 +78,10 @@ export function Handover() {
     const wt = workTypes.find((w) => w.id === e.workTypeId);
     const names = e.shares.map((x) => workers.find((w) => w.id === x.workerId)?.name).filter(Boolean).join(', ');
     const isPartial = e.accepted && e.acceptedQuantity !== undefined && e.acceptedQuantity < e.quantity;
+    const editing = partial?.id === e.id;
     return (
-      <div key={e.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 shadow-card">
+      <div key={e.id} className="rounded-[16px] bg-white px-3.5 py-3 shadow-card">
+      <div className="flex items-center gap-3">
         {tab === 'pending' ? (
           <button
             aria-label={t('works.accept')}
@@ -101,12 +105,37 @@ export function Handover() {
           <span className="block text-[16px] font-extrabold">
             {formatMoney(tab === 'pending' ? remainder(e) : (isPartial ? (e.acceptedTotal ?? e.customerTotal) : e.customerTotal))}
           </span>
-          {tab === 'pending' && (
-            <button className="text-[12px] font-bold text-slate-500 underline" onClick={() => setPartial(e)} data-testid={`partial-${e.id}`}>
+          {tab === 'pending' && !editing && (
+            <button
+              className="text-[12px] font-bold text-slate-500 underline"
+              onClick={() => setPartial({ id: e.id, value: String(e.acceptedQuantity ?? e.quantity).replace('.', ',') })}
+              data-testid={`partial-${e.id}`}
+            >
               {t('handover.acceptPart')}
             </button>
           )}
         </span>
+      </div>
+      {editing && partial && (
+        <div className="mt-2.5 border-t border-[#f0ece3] pt-2.5">
+          <NumField
+            label={t('handover.partialTitle', { q: formatQuantity(e.quantity), unit: e.unit })}
+            value={partial.value}
+            onChange={(v) => setPartial({ id: e.id, value: v })}
+            onCommit={(v, reason) => {
+              // Поле исчезает вместе с экраном — убирать его самим не нужно
+              if (reason === 'unmount') return;
+              setPartial(null);
+              if (reason !== 'done') return;
+              void acceptWorkEntryPartially(e.id, parseDecimal(v)).then(() => toast.show(t('common.saved')));
+            }}
+            suffix={e.unit}
+            autoOpen
+            hint={t('handover.partialHint')}
+            testId={`partial-input-${e.id}`}
+          />
+        </div>
+      )}
       </div>
     );
   };
@@ -115,6 +144,15 @@ export function Handover() {
     <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={t('object.handover')} sub={s.object?.name} right={<CustomerModeButton />} />
       <div className="flex flex-1 flex-col gap-3 px-4">
+        {/* Общая сумма по договору: сдают этапы, их части становятся «к оплате». Объёмы тут не принимают */}
+        {s.fixed && s.object && (
+          <>
+            <p className="px-1 text-[14px] text-slate-500">{t('plan.stagesHint')}</p>
+            <PlanSchedule object={s.object} statuses={s.statuses} received={s.received} done={s.done} readOnly={customerMode} />
+          </>
+        )}
+        {!s.fixed && (
+        <>
         <div className="flex gap-2">
           <button className={`min-h-[44px] rounded-full px-4 text-[14px] font-bold ${tab === 'pending' ? 'bg-accent' : 'bg-[#ece8df] text-slate-600'}`} onClick={() => setTab('pending')}>
             {t('handover.pending')} · {pending.length}
@@ -130,9 +168,11 @@ export function Handover() {
           {list.map(row)}
           {list.length === 0 && <p className="py-6 text-center text-[16px] text-slate-400">{tab === 'pending' ? t('handover.nothingPending') : t('handover.nothingAccepted')}</p>}
         </div>
+        </>
+        )}
 
         <div className="sticky bottom-0 z-20 -mx-4 mt-auto rounded-t-[24px] bg-white px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(31,41,55,.08)]">
-          {tab === 'pending' && (
+          {tab === 'pending' && !s.fixed && (
             <>
               <div className="flex items-baseline justify-between pb-2">
                 <span className="text-[14px] font-semibold text-slate-500">{t('handover.selected', { n: checked.size })}</span>
@@ -148,17 +188,6 @@ export function Handover() {
         </div>
       </div>
 
-      {partial && (
-        <NumSheet
-          title={t('handover.partialTitle', { q: formatQuantity(partial.quantity), unit: partial.unit })}
-          initial={String(partial.quantity).replace('.', ',')}
-          onClose={() => setPartial(null)}
-          onSave={(v) => {
-            const qty = parseDecimal(v);
-            void acceptWorkEntryPartially(partial.id, qty).then(() => toast.show(t('common.saved')));
-          }}
-        />
-      )}
     </div>
   );
 }

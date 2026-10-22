@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
@@ -13,7 +13,7 @@ import { useSw } from '../state/sw';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Sheet } from '../components/Sheet';
 import { Segmented } from '../components/Segmented';
-import { NumSheet } from '../components/NumSheet';
+import { NumField } from '../components/NumField';
 import { BigButton } from '../components/BigButton';
 import { Card, SectionTitle, TextField } from '../components/ui';
 import { Icon } from '../icons';
@@ -21,6 +21,26 @@ import { wtLabel } from '../lib/summary';
 import type { Unit } from '../db/types';
 
 const UNITS: Unit[] = ['м²', 'м³', 'кг', 'т', 'пог. м', 'шт.', 'точка', 'смена', 'час', 'рейс'];
+
+// Число настройки: печатается в поле, сохраняется, когда поле закрыли
+function SettingNum({ label, stored, suffix, decimals = 2, onSave, testId }: {
+  label: string; stored: string; suffix: string; decimals?: number; onSave: (v: string) => void; testId?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  // Значение в базе поменялось — показываем его
+  useEffect(() => setDraft(null), [stored]);
+  return (
+    <NumField
+      label={label}
+      value={draft ?? stored}
+      onChange={setDraft}
+      onCommit={(v) => { if (draft !== null && v !== stored) onSave(v); }}
+      suffix={suffix}
+      decimals={decimals}
+      testId={testId}
+    />
+  );
+}
 
 // Настройки программы: только про программу. Объекты и цены живут внутри объекта.
 export function SettingsScreen() {
@@ -31,7 +51,6 @@ export function SettingsScreen() {
   const settings = useSettings();
   const workTypes = useWorkTypes();
   const [wtForm, setWtForm] = useState<{ nameRu: string; nameKy: string; icon: string; unit: Unit; area: boolean } | null>(null);
-  const [numSheet, setNumSheet] = useState<{ title: string; initial: string; save: (v: string) => void } | null>(null);
   const [withPhotos, setWithPhotos] = useState(false);
   const [wipeInput, setWipeInput] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -107,9 +126,13 @@ export function SettingsScreen() {
 
         <SectionTitle>{t('settings.money')}</SectionTitle>
         <Card className="flex flex-col gap-2 !p-3">
-          <button className={rowBtn} onClick={() => setNumSheet({ title: t('settings.openingCash'), initial: tyiynToSomsInput(settings.openingCash), save: (v) => void updateSettings({ openingCash: somsToTyiyn(v) }) })}>
-            <span>{t('settings.openingCash')}</span><b>{tyiynToSomsInput(settings.openingCash)}</b>
-          </button>
+          <SettingNum
+            label={t('settings.openingCash')}
+            stored={tyiynToSomsInput(settings.openingCash)}
+            suffix="сом"
+            onSave={(v) => void updateSettings({ openingCash: somsToTyiyn(v) })}
+            testId="opening-cash"
+          />
           <span className="px-1 pt-1 text-[13px] font-semibold text-slate-500">{t('settings.tax')}</span>
           <Segmented
             options={[
@@ -121,14 +144,21 @@ export function SettingsScreen() {
             onChange={(v) => void updateSettings({ taxMode: v })}
           />
           {settings.taxMode === 'percent' && (
-            <button className={rowBtn} onClick={() => setNumSheet({ title: t('settings.taxPercentValue'), initial: String(settings.taxPercent), save: (v) => void updateSettings({ taxPercent: parseDecimal(v) }) })}>
-              <span>{t('settings.taxPercentValue')}</span><b>{settings.taxPercent}%</b>
-            </button>
+            <SettingNum
+              label={t('settings.taxPercentValue')}
+              stored={String(settings.taxPercent).replace('.', ',')}
+              suffix="%"
+              decimals={1}
+              onSave={(v) => void updateSettings({ taxPercent: Math.min(100, parseDecimal(v)) })}
+            />
           )}
           {settings.taxMode === 'fixedMonthly' && (
-            <button className={rowBtn} onClick={() => setNumSheet({ title: t('settings.taxFixedValue'), initial: tyiynToSomsInput(settings.taxFixedMonthly), save: (v) => void updateSettings({ taxFixedMonthly: somsToTyiyn(v) }) })}>
-              <span>{t('settings.taxFixedValue')}</span><b>{tyiynToSomsInput(settings.taxFixedMonthly)}</b>
-            </button>
+            <SettingNum
+              label={t('settings.taxFixedValue')}
+              stored={tyiynToSomsInput(settings.taxFixedMonthly)}
+              suffix="сом"
+              onSave={(v) => void updateSettings({ taxFixedMonthly: somsToTyiyn(v) })}
+            />
           )}
         </Card>
 
@@ -228,7 +258,6 @@ export function SettingsScreen() {
         </Sheet>
       )}
 
-      {numSheet && <NumSheet title={numSheet.title} initial={numSheet.initial} onSave={numSheet.save} onClose={() => setNumSheet(null)} />}
     </div>
   );
 }

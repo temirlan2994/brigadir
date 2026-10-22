@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { loadDemo } from './helpers';
 
-const SCREENS = ['/#/', '/#/objects', '/#/team', '/#/cash', '/#/settings', '/#/work/new', '/#/objects/new', '/#/attendance'];
+const SCREENS = ['/#/', '/#/objects', '/#/team', '/#/cash', '/#/settings', '/#/work/new', '/#/objects/new', '/#/attendance', '/#/counterparties', '/#/receipt/new'];
 
 for (const width of [360, 430]) {
   test(`нет горизонтального скролла на ширине ${width}`, async ({ page }) => {
@@ -23,7 +23,7 @@ for (const width of [360, 430]) {
     }
     await page.goto('/#/objects');
     await page.getByTestId('object-БЦ «Триумф»').click();
-    for (const testId of ['menu-works', 'menu-handover', 'menu-money', 'menu-prices', 'menu-result']) {
+    for (const testId of ['menu-works', 'menu-handover', 'menu-money', 'menu-contract', 'menu-prices', 'menu-result']) {
       await page.getByTestId(testId).click();
       await page.waitForTimeout(300);
       const overflow = await page.evaluate(() => {

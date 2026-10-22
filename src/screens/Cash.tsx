@@ -9,7 +9,7 @@ import { formatMoney } from '../core/format';
 import { toCsvSections, downloadText } from '../lib/files';
 import { useToast } from '../state/toast';
 import { BigButton } from '../components/BigButton';
-import { Card, DarkCard, Pill, SectionTitle, Tag } from '../components/ui';
+import { Card, DarkCard, FeedItem, Pill, SectionTitle } from '../components/ui';
 
 // Касса: деньги по всем объектам, из чего сложилось, хватит ли на зарплату
 export function Cash() {
@@ -118,14 +118,16 @@ export function Cash() {
           {objects.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
         {feed.map((row) => (
-          <button key={row.key} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(row.to)}>
-            <Tag kind={row.tagKind} label={t(row.typeKey)} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[16px] font-semibold">{row.title}</span>
-              <span className="block truncate text-[13px] font-medium text-slate-500">{formatDateShort(row.date, lang)}{row.sub ? ` · ${row.sub}` : ''}</span>
-            </span>
-            <span className={`text-[17px] font-extrabold ${row.tone === 'in' ? 'text-money-in' : row.tone === 'out' ? 'text-money-out' : ''}`}>{row.amountText}</span>
-          </button>
+          <FeedItem
+            key={row.key}
+            tagKind={row.tagKind}
+            tagLabel={t(row.typeKey)}
+            title={row.title}
+            sub={[formatDateShort(row.date, lang), row.sub].filter(Boolean).join(' · ')}
+            amount={row.amountText}
+            tone={row.tone}
+            onClick={() => navigate(row.to)}
+          />
         ))}
         {feed.length === 0 && <p className="py-4 text-center text-[15px] text-slate-400">{t('common.empty')}</p>}
 

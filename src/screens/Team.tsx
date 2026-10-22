@@ -8,7 +8,8 @@ import { formatMoney, parseDecimal } from '../core/format';
 import { addWorker } from '../db/repo';
 import { WorkerCircle } from '../components/WorkerCircle';
 import { BigButton } from '../components/BigButton';
-import { NumSheet } from '../components/NumSheet';
+import { NumField } from '../components/NumField';
+import { PhoneField } from '../components/PhoneField';
 import { DarkCard, TextField } from '../components/ui';
 
 // Бригада: кому сколько должен; «Рассчитаться»; добавить человека
@@ -22,7 +23,7 @@ export function Team() {
   const [name, setName] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [headcount, setHeadcount] = useState('');
-  const [headSheet, setHeadSheet] = useState(false);
+  const [phone, setPhone] = useState('');
   const [showArchived, setShowArchived] = useState(false);
 
   const active = activeEntries(entries);
@@ -40,10 +41,11 @@ export function Team() {
     const n = name.trim();
     if (!n) return;
     const head = Math.round(parseDecimal(headcount));
-    await addWorker(n, specialty.trim() || undefined, undefined, head > 0 ? head : undefined);
+    await addWorker(n, specialty.trim() || undefined, phone || undefined, head > 0 ? head : undefined);
     setName('');
     setSpecialty('');
     setHeadcount('');
+    setPhone('');
     setAdding(false);
   }
 
@@ -101,14 +103,24 @@ export function Team() {
         {adding ? (
           <div className="flex flex-col gap-2 rounded-[18px] bg-white p-3 shadow-card">
             <TextField label={t('workers.name')} value={name} onChange={setName} autoFocus testId="worker-name-input" />
-            <TextField label={t('workers.specialty')} value={specialty} onChange={setSpecialty} />
-            <button
-              className="flex min-h-[56px] items-center justify-between rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-left"
-              onClick={() => setHeadSheet(true)}
-            >
-              <span className="text-[12px] font-semibold text-slate-500">{t('workers.headcount')}</span>
-              <span className="text-[18px] font-bold">{headcount || '—'}</span>
-            </button>
+            <TextField label={t('workers.specialty')} value={specialty} onChange={setSpecialty} placeholder={t('workers.specialtyPlaceholder')} />
+            <NumField
+              label={t('workers.headcount')}
+              value={headcount}
+              onChange={setHeadcount}
+              decimals={0}
+              maxDigits={3}
+              suffix={t('newObject.peopleShort')}
+              placeholder="—"
+              testId="worker-headcount"
+            />
+            <PhoneField
+              label={t('workers.phone')}
+              value={phone}
+              onChange={setPhone}
+              onContact={(c) => { if (!name.trim() && c.name) setName(c.name); }}
+              testId="worker-phone"
+            />
             <BigButton label={t('common.save')} tone="dark" disabled={!name.trim()} onClick={() => void saveWorker()} testId="worker-save" />
           </div>
         ) : (
@@ -129,10 +141,6 @@ export function Team() {
           </div>
         )}
       </div>
-
-      {headSheet && (
-        <NumSheet title={t('workers.headcount')} initial={headcount} onSave={setHeadcount} onClose={() => setHeadSheet(false)} />
-      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 // Тексты для WhatsApp: отчёт заказчику и выписка рабочему. Всегда на русском.
 import { translate, formatDateShort } from '../i18n';
 import { formatMoneyExact, formatQuantity } from '../core/format';
-import type { SiteObject, WorkEntry, WorkType } from '../db/types';
+import { formatPhone, phoneDigits } from '../core/phone';
+import type { Counterparty, SiteObject, WorkEntry, WorkType } from '../db/types';
 
 const ru = (key: string, params?: Record<string, string | number>) => translate('ru', key, params);
 
@@ -45,28 +46,40 @@ export function customerReportText(object: SiteObject, entries: WorkEntry[], wor
   return lines.join('\n');
 }
 
-// Акт текстом — для телефона, где печати нет
+// Реквизиты заказчика для акта: имя, ИНН, адрес, телефон
+export function customerLines(object: SiteObject, cp: Counterparty | undefined): string[] {
+  const name = cp?.name ?? object.customerName;
+  if (!name) return [];
+  const lines = [`${ru('act.customer')}: ${name}`];
+  if (cp?.inn) lines.push(`${ru('cp.inn')}: ${cp.inn}`);
+  if (cp?.address) lines.push(`${ru('cp.address')}: ${cp.address}`);
+  const phone = formatPhone(cp?.phone ?? object.customerPhone);
+  if (phone) lines.push(`${ru('cp.phone')}: ${phone}`);
+  return lines;
+}
+
+// Акт текстом — для телефона, где печати нет. Строки — объёмы или сданные этапы
 export function actText(
   object: SiteObject,
-  rows: { name: string; unit: string; qty: number; price: number; total: number }[],
+  cp: Counterparty | undefined,
+  rows: { name: string; unit?: string; qty?: number; price?: number; total: number }[],
   total: number,
-  formatQty: (n: number) => string,
-  formatExact: (n: number) => string,
 ): string {
-  const lines: string[] = [ru('act.title'), `${ru('act.object')}: ${object.name}`];
-  if (object.customerName) lines.push(`${ru('act.customer')}: ${object.customerName}`);
+  const lines: string[] = [ru('act.title'), `${ru('act.object')}: ${object.name}`, ...customerLines(object, cp)];
   lines.push('');
   for (const r of rows) {
-    lines.push(`${r.name} — ${formatQty(r.qty)} ${r.unit} × ${formatExact(r.price)} = ${formatExact(r.total)}`);
+    lines.push(r.qty !== undefined && r.price !== undefined
+      ? `${r.name} — ${formatQuantity(r.qty)} ${r.unit ?? ''} × ${formatMoneyExact(r.price)} = ${formatMoneyExact(r.total)}`
+      : `${r.name} — ${formatMoneyExact(r.total)}`);
   }
   lines.push('');
-  lines.push(`${ru('act.total')}: ${formatExact(total)}`);
+  lines.push(`${ru('act.total')}: ${formatMoneyExact(total)}`);
   return lines.join('\n');
 }
 
 // Открыть WhatsApp с текстом, если есть номер; иначе — скопировать
 export async function sendText(phone: string | undefined, text: string): Promise<'whatsapp' | 'copied' | 'failed'> {
-  const digits = (phone ?? '').replace(/\D/g, '');
+  const digits = phoneDigits(phone);
   if (digits) {
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank');
     return 'whatsapp';

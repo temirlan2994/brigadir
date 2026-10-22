@@ -6,6 +6,7 @@ import { addCashMove, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { NumPadPanel } from '../components/NumPadPanel';
+import { AmountHero } from '../components/AmountHero';
 import { Segmented } from '../components/Segmented';
 import { DatePick } from '../components/DatePick';
 
@@ -39,6 +40,7 @@ export function CashMoveNew() {
     <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={t(kind === 'draw' ? 'cash.drawTitle' : 'cash.contributionTitle')} />
       <div className="flex flex-1 flex-col gap-3 px-4 pt-1">
+        <AmountHero label={t('common.sum')} value={amount} suffix="сом" />
         <Segmented
           options={[
             { value: 'draw', label: t('cash.drawTitle') },
@@ -56,7 +58,6 @@ export function CashMoveNew() {
           onChange={(e) => setNote(e.target.value)}
         />
         <NumPadPanel
-          label={t('common.sum')}
           value={amount}
           onChange={setAmount}
           action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0, testId: 'save-cashmove' }}

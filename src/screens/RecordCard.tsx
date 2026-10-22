@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useT, useLangStore, formatDateShort } from '../i18n';
 import { useAdjustments, useCashMoves, useExpenses, usePayouts, useReceipts, useWorkers } from '../lib/hooks';
-import { formatMoney, somsToTyiyn, tyiynToSomsInput } from '../core/format';
+import { somsToTyiyn, tyiynToSomsInput } from '../core/format';
 import {
   restore, softDelete, updateAdjustment, updateCashMove, updateExpense, updatePayout, updateReceipt,
 } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { NumSheet } from '../components/NumSheet';
+import { NumField } from '../components/NumField';
 import { DatePick } from '../components/DatePick';
 import { BigButton } from '../components/BigButton';
 import { Segmented } from '../components/Segmented';
@@ -32,7 +32,9 @@ export function RecordCard() {
   const adjustments = useAdjustments();
   const moves = useCashMoves();
   const workers = useWorkers();
-  const [editAmount, setEditAmount] = useState(false);
+  // Сумма правится прямо в карточке: пока поле открыто — набранная строка, иначе из базы
+  const [amountDraft, setAmountDraft] = useState<string | null>(null);
+  const amountRef = useRef<{ open: () => void }>(null);
 
   const kind = table as TableName;
   const row =
@@ -127,9 +129,21 @@ export function RecordCard() {
         <Card>
           {payoutKindLabel && <p className="text-[14px] font-medium text-slate-500">{payoutKindLabel}{methodLabel ? ` · ${methodLabel}` : ''}</p>}
           {!payoutKindLabel && methodLabel && <p className="text-[14px] font-medium text-slate-500">{methodLabel}</p>}
-          <button className="mt-1 block text-[36px] font-black tracking-tight" onClick={() => setEditAmount(true)} data-testid="edit-amount">
-            {formatMoney(row.amount)}
-          </button>
+          <NumField
+            ref={amountRef}
+            variant="hero"
+            label={t('common.sum')}
+            value={amountDraft ?? tyiynToSomsInput(row.amount)}
+            onChange={setAmountDraft}
+            onCommit={(v) => {
+              setAmountDraft(null);
+              const tyiyn = somsToTyiyn(v);
+              if (tyiyn > 0 && tyiyn !== row.amount) void patch({ amount: tyiyn });
+            }}
+            suffix="сом"
+            className="-mx-2 mt-1"
+            testId="edit-amount"
+          />
           <p className="text-[14px] font-medium text-slate-500">{formatDateShort(row.date, lang)}</p>
           {row.note && <p className="mt-2 text-[15px] text-slate-700">{row.note}</p>}
         </Card>
@@ -197,7 +211,7 @@ export function RecordCard() {
       )}
 
       <div className="mx-4">
-        <BigButton label={t('record.editAmount')} tone="neutral" onClick={() => setEditAmount(true)} testId="edit-amount-btn" />
+        <BigButton label={t('record.editAmount')} tone="neutral" onClick={() => amountRef.current?.open()} testId="edit-amount-btn" />
       </div>
 
       <input
@@ -213,14 +227,6 @@ export function RecordCard() {
         </div>
       )}
 
-      {editAmount && (
-        <NumSheet
-          title={t('common.sum')}
-          initial={tyiynToSomsInput(row.amount)}
-          onClose={() => setEditAmount(false)}
-          onSave={(v) => { const tyiyn = somsToTyiyn(v); if (tyiyn > 0) void patch({ amount: tyiyn }); }}
-        />
-      )}
     </div>
   );
 }

@@ -11,10 +11,11 @@ export interface BackupFile {
   photos?: { id: string; createdAt: string; type: string; base64: string }[];
 }
 
+// Копии старых версий без контрагентов тоже читаются: заказчики переносятся после импорта
 const DATA_TABLES = [
   'settings', 'objects', 'workTypes', 'rates', 'workers', 'workEntries',
   'payouts', 'expenses', 'receipts', 'adjustments', 'changeLog',
-  'cashMoves', 'attendance',
+  'cashMoves', 'attendance', 'counterparties',
 ] as const;
 
 function blobToBase64(blob: Blob): Promise<string> {

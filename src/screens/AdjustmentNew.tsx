@@ -7,6 +7,7 @@ import { addAdjustment, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { NumPadPanel } from '../components/NumPadPanel';
+import { AmountHero } from '../components/AmountHero';
 import { Segmented } from '../components/Segmented';
 import { DatePick } from '../components/DatePick';
 import type { AdjustmentKind } from '../db/types';
@@ -45,6 +46,7 @@ export function AdjustmentNew() {
     <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={t('customerMoney.withhold')} sub={object?.customerName ?? object?.name} />
       <div className="flex flex-1 flex-col gap-3 px-4 pt-1">
+        <AmountHero label={t('common.sum')} value={amount} suffix="сом" />
         <Segmented
           options={[
             { value: 'retention', label: t('adjustment.retention') },
@@ -64,7 +66,6 @@ export function AdjustmentNew() {
           onChange={(e) => setNote(e.target.value)}
         />
         <NumPadPanel
-          label={t('common.sum')}
           value={amount}
           onChange={setAmount}
           action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0 || !object, testId: 'save-adjustment' }}

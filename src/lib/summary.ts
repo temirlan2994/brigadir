@@ -1,10 +1,13 @@
 // Сводные числа: главная «Сегодня», объект, лента записей.
 import {
-  activeEntries, customerOwes, owedToWorkers, advanceOverruns, cashBalance,
+  activeEntries, owedToWorkers, advanceOverruns, cashBalance,
   freeCash, doneTotal, acceptedTotal, workersTotalSum, contractorExpensesTotal, taxAmount,
   firstEntryDate, profitForecast, notDeleted, receiptsTotal, adjustmentsTotal,
-  customerAdvanceLeft, objectStage,
+  customerAdvanceLeft,
 } from '../core/calc';
+import {
+  customerOwesByPlan, dueTotal, isFixed, nextPart, objectStageByPlan, planStatus, revenueBase,
+} from '../core/plan';
 import { todayStr } from '../db/repo';
 import {
   byObject, useAdjustments, useEntries, useExpenses, usePayouts,
@@ -34,20 +37,26 @@ export function useHomeSummary() {
   const objEntries = byObject(allActive, activeObject?.id);
   const objReceipts = byObject(receipts, activeObject?.id);
   const objAdjustments = byObject(adjustments, activeObject?.id);
+  const plan = activeObject?.payment;
+  const fixed = isFixed(plan);
+  const today = todayStr();
 
-  const owedToMe = customerOwes(objEntries, objReceipts, objAdjustments);
+  const owedToMe = customerOwesByPlan(plan, objEntries, objReceipts, objAdjustments, today);
   const owed = owedToWorkers(allActive, payouts);
   const overruns = advanceOverruns(allActive, payouts);
   const cash = cashBalance(settings.openingCash, receipts, payouts, expenses, moves);
   const free = freeCash(cash, owed);
   const done = doneTotal(objEntries);
-  const notAccepted = done - acceptedTotal(objEntries);
+  // «Ещё не сдано»: по общей сумме — этапы, которые ещё не наступили
+  const notAccepted = fixed
+    ? revenueBase(plan, done) - dueTotal(plan.parts, today)
+    : done - acceptedTotal(objEntries);
 
   return {
     settings, activeObject, entries, payouts, expenses, receipts, adjustments, moves,
     allActive, objEntries, owedToMe, advanceLeft: customerAdvanceLeft(owedToMe),
-    owed, overruns, cash, free, done, notAccepted,
-    todayEntries: objEntries.filter((e) => e.date === todayStr()),
+    owed, overruns, cash, free, done, notAccepted, fixed,
+    todayEntries: objEntries.filter((e) => e.date === today),
   };
 }
 
@@ -67,28 +76,38 @@ export function useObjectSummary(objectId: string | undefined) {
   const objAdjustments = notDeleted(byObject(adjustments, objectId));
   const objExpenses = byObject(expenses, objectId);
 
+  const plan = object?.payment;
+  const fixed = isFixed(plan);
+  const today = todayStr();
   const done = doneTotal(active);
   const accepted = acceptedTotal(active);
-  const notAccepted = done - accepted;
   const received = receiptsTotal(objReceipts);
   const withheld = adjustmentsTotal(objAdjustments);
-  const owedToMe = customerOwes(active, objReceipts, objAdjustments);
+  const owedToMe = customerOwesByPlan(plan, active, objReceipts, objAdjustments, today);
+  // По общей сумме: договор, сколько этапов уже к оплате, сколько ещё не сдано
+  const contractTotal = fixed ? revenueBase(plan, done) : 0;
+  const dueSum = fixed ? dueTotal(plan.parts, today) : 0;
+  const notAccepted = fixed ? contractTotal - dueSum : done - accepted;
+  const statuses = plan ? planStatus(plan.parts, received, today) : [];
+  const next = nextPart(statuses);
   const workersSum = workersTotalSum(active);
   const contractorExp = contractorExpensesTotal(objExpenses);
+  // Прогноз: по общей сумме — от договора, по объёмам — от сделанного
+  const revenue = revenueBase(plan, done);
   // У закрытого объекта налог заморожен датой закрытия, а процент берётся от полученных денег
-  const taxUntil = object?.closedAt ? object.closedAt.slice(0, 10) : todayStr();
+  const taxUntil = object?.closedAt ? object.closedAt.slice(0, 10) : today;
   const tax = taxAmount(
     settings.taxMode, settings.taxPercent, settings.taxFixedMonthly,
-    done, firstEntryDate(active), taxUntil,
+    revenue, firstEntryDate(active), taxUntil,
   );
   const taxFact = taxAmount(
     settings.taxMode, settings.taxPercent, settings.taxFixedMonthly,
     received, firstEntryDate(active), taxUntil,
   );
-  const profit = profitForecast(done, workersSum, contractorExp, tax);
+  const profit = profitForecast(revenue, workersSum, contractorExp, tax);
   // Факт по деньгам: что заплатил заказчик минус бригада, расходы и налог
   const profitFact = received - workersSum - contractorExp - taxFact;
-  const stage = object ? objectStage(object, active, objReceipts) : 'taken';
+  const stage = object ? objectStageByPlan(object, plan, active, objReceipts, today) : 'taken';
   const unacceptedEntries = active.filter((e) => !e.accepted || (e.acceptedQuantity !== undefined && e.acceptedQuantity < e.quantity));
 
   return {
@@ -96,11 +115,15 @@ export function useObjectSummary(objectId: string | undefined) {
     done, accepted, notAccepted, received, withheld, owedToMe,
     advanceLeft: customerAdvanceLeft(owedToMe),
     workersSum, contractorExp, tax, taxFact, profit, profitFact, stage, unacceptedEntries,
+    plan, fixed, contractTotal, dueSum, statuses, next, revenue,
   };
 }
 
 export function objectStageOf(object: SiteObject, entriesAll: ReturnType<typeof useEntries>, receiptsAll: ReturnType<typeof useReceipts>) {
-  return objectStage(object, byObject(activeEntries(entriesAll), object.id), notDeleted(byObject(receiptsAll, object.id)));
+  return objectStageByPlan(
+    object, object.payment, byObject(activeEntries(entriesAll), object.id),
+    notDeleted(byObject(receiptsAll, object.id)), todayStr(),
+  );
 }
 
 export interface FeedRow {
@@ -165,6 +188,7 @@ export function useFeed(limit = 20, objectId?: string): FeedRow[] {
       key: `r${r.id}`, to: `/record/receipt/${r.id}`, date: r.date, createdAt: r.createdAt,
       typeKey: r.kind === 'advance' ? 'feed.customerAdvance' : 'feed.receipt', tagKind: 'rec', tone: 'in',
       title: translate(lang, r.method === 'cash' ? 'payout.cash' : 'payout.transfer'),
+      sub: r.note,
       amountText: `+${formatMoney(r.amount)}`,
     });
   }

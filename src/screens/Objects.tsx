@@ -1,15 +1,17 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, UsersRound } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
 import { formatMoney, groupDigits } from '../core/format';
-import { useEntries, useObjects, useReceipts, useAdjustments, useSettings, useExpenses, byObject } from '../lib/hooks';
+import { useEntries, useObjects, useReceipts, useAdjustments, useSettings, useExpenses, useCounterparties, byObject } from '../lib/hooks';
 import {
-  activeEntries, doneTotal, acceptedTotal, customerOwes, notDeleted, objectStage,
+  activeEntries, doneTotal, acceptedTotal, notDeleted,
   receiptsTotal, workersTotalSum, contractorExpensesTotal, taxAmount, firstEntryDate,
 } from '../core/calc';
+import { customerOwesByPlan, dueTotal, isFixed, objectStageByPlan, revenueBase } from '../core/plan';
 import { todayStr } from '../db/repo';
 import { Card, Pill, StageStrip } from '../components/ui';
 import { BigButton } from '../components/BigButton';
+import type { SiteObject } from '../db/types';
 
 // Объекты: стадия каждого, что сделано и сколько должны; «Взял новый объект»
 export function Objects() {
@@ -22,30 +24,48 @@ export function Objects() {
   const receipts = useReceipts();
   const adjustments = useAdjustments();
   const expenses = useExpenses();
+  const counterparties = useCounterparties();
 
   const all = activeEntries(entries);
+  const today = todayStr();
   const open = objects.filter((o) => !o.closedAt && !o.archivedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const closed = objects.filter((o) => o.closedAt || o.archivedAt).sort((a, b) => (b.closedAt ?? b.archivedAt ?? '').localeCompare(a.closedAt ?? a.archivedAt ?? ''));
 
-  function stats(o: { id: string; closedAt?: string }) {
+  function stats(o: SiteObject) {
     const act = byObject(all, o.id);
     const rec = notDeleted(byObject(receipts, o.id));
     const adj = notDeleted(byObject(adjustments, o.id));
+    const plan = o.payment;
     const done = doneTotal(act);
     const received = receiptsTotal(rec);
     // У закрытого объекта налог заморожен датой закрытия и считается от полученных денег
-    const until = o.closedAt ? o.closedAt.slice(0, 10) : todayStr();
+    const until = o.closedAt ? o.closedAt.slice(0, 10) : today;
     const tax = taxAmount(settings.taxMode, settings.taxPercent, settings.taxFixedMonthly, received, firstEntryDate(act), until);
     const result = received - workersTotalSum(act) - contractorExpensesTotal(byObject(expenses, o.id)) - tax;
+    const fixed = isFixed(plan);
     return {
-      done, accepted: acceptedTotal(act), owed: customerOwes(act, rec, adj),
-      stage: objectStage(o, act, rec), result,
+      fixed,
+      // По общей сумме: договор / сдано этапов; по объёмам: сделано / принято
+      first: fixed ? revenueBase(plan, done) : done,
+      second: fixed ? dueTotal(plan.parts, today) : acceptedTotal(act),
+      owed: customerOwesByPlan(plan, act, rec, adj, today),
+      stage: objectStageByPlan(o, plan, act, rec, today), result,
     };
   }
 
   return (
     <div className="flex min-h-screen flex-col px-4 pb-4">
-      <h1 className="py-4 text-[24px] font-extrabold">{t('nav.objects')}</h1>
+      <div className="flex items-center justify-between gap-2 py-4">
+        <h1 className="text-[24px] font-extrabold">{t('nav.objects')}</h1>
+        <button
+          className="flex min-h-[44px] items-center gap-1.5 rounded-full bg-white px-3.5 text-[14px] font-bold shadow-card"
+          onClick={() => navigate('/counterparties')}
+          data-testid="to-counterparties"
+        >
+          <UsersRound size={18} aria-hidden="true" />
+          {t('cp.title')}{counterparties.length > 0 ? ` · ${counterparties.length}` : ''}
+        </button>
+      </div>
       <div className="flex flex-col gap-3">
         {open.map((o) => {
           const s = stats(o);
@@ -63,8 +83,8 @@ export function Objects() {
               </span>
               <span className="mt-3 block"><StageStrip stage={s.stage} /></span>
               <span className="mt-3 grid grid-cols-3 gap-2">
-                <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('objects.done')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(s.done / 100))}</span></span>
-                <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('objects.accepted')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(s.accepted / 100))}</span></span>
+                <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{s.fixed ? t('plan.contract') : t('objects.done')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(s.first / 100))}</span></span>
+                <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{s.fixed ? t('plan.handedShort') : t('objects.accepted')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(s.second / 100))}</span></span>
                 <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('objects.owed')}</span><span className={`block truncate text-[15px] font-extrabold ${s.owed > 0 ? 'text-money-in' : ''}`}>{groupDigits(Math.round(Math.max(0, s.owed) / 100))}</span></span>
               </span>
             </Card>

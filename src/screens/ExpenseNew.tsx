@@ -7,6 +7,7 @@ import { addExpense, hardDelete, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { NumPadPanel } from '../components/NumPadPanel';
+import { AmountHero } from '../components/AmountHero';
 import { Segmented } from '../components/Segmented';
 import { DatePick } from '../components/DatePick';
 import { Tile } from '../components/Tile';
@@ -65,6 +66,7 @@ export function ExpenseNew() {
     <div className="flex min-h-screen flex-col bg-paper">
       <ScreenHeader title={`${t('home.spent')} · ${t(`expense.${category}`)}`} onBack={() => setCategory('')} />
       <div className="flex flex-1 flex-col gap-3 px-4 pt-2">
+        <AmountHero label={t('common.sum')} value={amount} suffix="сом" />
         <div>
           <p className="pb-1 text-[14px] text-slate-500">{t('expense.whoPays')}</p>
           <Segmented
@@ -89,7 +91,6 @@ export function ExpenseNew() {
           onChange={(e) => setNote(e.target.value)}
         />
         <NumPadPanel
-          label={t('common.sum')}
           value={amount}
           onChange={setAmount}
           action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0 || !activeObject, testId: 'save-expense' }}

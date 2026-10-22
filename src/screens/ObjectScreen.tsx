@@ -1,8 +1,11 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useT, useLangStore, formatDateShort } from '../i18n';
+import { db } from '../db/db';
 import { formatMoney } from '../core/format';
 import { useObjectSummary } from '../lib/summary';
+import { planSummary } from '../lib/planText';
 import { updateObject, updateSettings } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -17,17 +20,19 @@ export function ObjectScreen() {
   const toast = useToast();
   const { id = '' } = useParams();
   const s = useObjectSummary(id);
+  const ratesCount = useLiveQuery(() => db.rates.where('objectId').equals(id).count(), [id]) ?? 0;
   const o = s.object;
   if (!o) return <ScreenHeader title="" />;
 
   const isActive = s.settings.activeObjectId === o.id;
   const lastDate = s.active.map((e) => e.date).sort().pop();
+  const plan = planSummary(o.payment, lang);
 
   return (
     <div className="flex min-h-screen flex-col bg-paper pb-4">
       <ScreenHeader
         title={o.name}
-        sub={[o.customerName, o.paymentTerms].filter(Boolean).join(' · ') || undefined}
+        sub={[o.customerName, o.address].filter(Boolean).join(' · ') || undefined}
         right={!isActive && !o.closedAt && !o.archivedAt ? (
           <button className="min-h-[44px] rounded-full bg-accent px-3 text-[13px] font-bold" onClick={() => void updateSettings({ activeObjectId: o.id })} data-testid="make-active">
             {t('objects.makeCurrent')}
@@ -38,21 +43,43 @@ export function ObjectScreen() {
         <StageStrip stage={s.stage} />
 
         <Card>
-          <KvRow label={t('object.doneAll')} value={formatMoney(s.done)} />
-          <KvRow label={t('object.acceptedByCustomer')} value={formatMoney(s.accepted)} />
-          <KvRow label={t('object.notHanded')} value={formatMoney(s.notAccepted)} />
+          {s.fixed ? (
+            <>
+              <KvRow label={t('plan.contract')} value={formatMoney(s.contractTotal)} />
+              <KvRow label={t('plan.handedStages')} value={formatMoney(s.dueSum)} />
+              <KvRow label={t('plan.notHandedStages')} value={formatMoney(s.notAccepted)} />
+            </>
+          ) : (
+            <>
+              <KvRow label={t('object.doneAll')} value={formatMoney(s.done)} />
+              <KvRow label={t('object.acceptedByCustomer')} value={formatMoney(s.accepted)} />
+              <KvRow label={t('object.notHanded')} value={formatMoney(s.notAccepted)} />
+            </>
+          )}
           <KvRow label={t('object.customerPaid')} value={formatMoney(s.received)} tone="in" />
           {s.withheld > 0 && <KvRow label={t('object.withheld')} value={`−${formatMoney(s.withheld)}`} tone="out" />}
           {s.advanceLeft > 0
-            ? <KvRow label={t('object.advanceLeft')} value={formatMoney(s.advanceLeft)} strong />
+            ? <KvRow label={s.fixed ? t('plan.paidAhead') : t('object.advanceLeft')} value={formatMoney(s.advanceLeft)} strong />
             : <KvRow label={t('object.customerOwes')} value={formatMoney(s.owedToMe)} strong tone="in" />}
+          {s.next && s.next.due && (
+            <p className="pt-2 text-[14px] font-semibold text-[#7a5a00]" data-testid="next-payment">
+              {t('plan.expect', { title: s.next.part.title, sum: formatMoney(s.next.left) })}
+            </p>
+          )}
         </Card>
 
         <MenuRow icon="hammer" title={t('object.works')} sub={t('object.worksSub', { n: s.active.length, date: lastDate ? formatDateShort(lastDate, lang) : '—' })} onClick={() => navigate(`/objects/${o.id}/works`)} testId="menu-works" />
-        <MenuRow icon="clip" title={t('object.handover')} sub={t('object.handoverSub', { n: s.unacceptedEntries.length })} onClick={() => navigate(`/objects/${o.id}/handover`)} testId="menu-handover" />
+        <MenuRow
+          icon="clip"
+          title={t('object.handover')}
+          sub={s.fixed ? t('plan.handoverSub', { n: s.statuses.filter((x) => x.part.trigger !== 'start' && !x.due).length }) : t('object.handoverSub', { n: s.unacceptedEntries.length })}
+          onClick={() => navigate(`/objects/${o.id}/handover`)}
+          testId="menu-handover"
+        />
         <MenuRow icon="sack" title={t('object.customerMoney')} sub={t('object.customerMoneySub', { n: s.objReceipts.length, w: s.objAdjustments.length })} onClick={() => navigate(`/objects/${o.id}/money`)} testId="menu-money" />
         <MenuRow icon="truck" title={t('object.myMoney')} sub={t('object.myMoneySub', { e: formatMoney(s.contractorExp), p: formatMoney(s.workersSum) })} onClick={() => navigate(`/objects/${o.id}/expenses`)} testId="menu-expenses" />
-        <MenuRow icon="tag" title={t('object.prices')} sub={o.customerName ?? t('newObject.customer')} onClick={() => navigate(`/objects/${o.id}/prices`)} testId="menu-prices" />
+        <MenuRow icon="person" title={t('object.contract')} sub={[o.customerName ?? t('cp.none'), plan].filter(Boolean).join(' · ')} onClick={() => navigate(`/objects/${o.id}/contract`)} testId="menu-contract" />
+        <MenuRow icon="tag" title={t('object.prices')} sub={t('object.pricesSub', { n: ratesCount })} onClick={() => navigate(`/objects/${o.id}/prices`)} testId="menu-prices" />
         <MenuRow
           icon="flag"
           title={t('object.result')}

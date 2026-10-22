@@ -7,12 +7,13 @@ import { db } from '../db/db';
 import { useActiveObject, useWorkers, useWorkTypes } from '../lib/hooks';
 import { useDraft } from '../state/draft';
 import { activeEntries, calcArea, lineTotals, splitShares } from '../core/calc';
-import { formatMoney, parseDecimal, somsToTyiyn, tyiynToSomsInput, formatQuantity } from '../core/format';
+import { formatMoney, parseDecimal, somsToTyiyn, tyiynToSomsInput, formatQuantity, groupInput } from '../core/format';
 import { addWorker, addWorkEntry, getRate, hardDelete, reviseWorkEntry, todayStr, upsertRate } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ProgressDots } from '../components/ProgressDots';
 import { NumPadPanel } from '../components/NumPadPanel';
+import { Caret } from '../components/NumField';
 import { Tile } from '../components/Tile';
 import { BigButton } from '../components/BigButton';
 import { Segmented } from '../components/Segmented';
@@ -47,7 +48,9 @@ export function WorkWizard() {
   const entries = useMemo(() => entriesRaw ?? [], [entriesRaw]);
   const objectsRaw = useLiveQuery(() => db.objects.toArray(), []);
   const [showAll, setShowAll] = useState(false);
-  const [focus, setFocus] = useState('');
+  const [focus, setFocusRaw] = useState('');
+  // Выбранное поле с числом: первая цифра заменяет старое значение
+  const [fresh, setFresh] = useState(false);
   const [newWorkerName, setNewWorkerName] = useState<string | null>(null);
   const [ratePrices, setRatePrices] = useState<{ customer: string; worker: string }>({ customer: '', worker: '' });
   const [ready, setReady] = useState(false);
@@ -152,6 +155,11 @@ export function WorkWizard() {
   function goStep(n: number) {
     navigate(`?step=${n}`, { state: location.state });
   }
+
+  // Новый шаг открывается сверху
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
 
   function back() {
     if (historyIdx() === 0) navigate('/', { replace: true });
@@ -259,16 +267,30 @@ export function WorkWizard() {
   const others = workTypes.filter((w) => !w.isFavorite && !w.archivedAt);
   const visibleOthers = showAll ? others : others.slice(0, 6);
 
-  // Значение активного поля нампада
-  function focusValue(): string {
-    if (focus === 'quantity') return draft.quantityInput;
-    if (focus === 'length') return draft.lengthInput;
-    if (focus === 'height') return draft.heightInput;
-    if (focus === 'customerPrice') return draft.customerPriceInput;
-    if (focus === 'workerPrice') return draft.workerPriceInput;
-    if (focus.startsWith('opening')) return draft.openingInputs[Number(focus.slice(7))] ?? '';
-    if (focus.startsWith('manual:')) return draft.manualInputs[focus.slice(7)] ?? '';
+  // Значение поля нампада (по умолчанию — активного)
+  function focusValue(f = focus): string {
+    if (f === 'quantity') return draft.quantityInput;
+    if (f === 'length') return draft.lengthInput;
+    if (f === 'height') return draft.heightInput;
+    if (f === 'customerPrice') return draft.customerPriceInput;
+    if (f === 'workerPrice') return draft.workerPriceInput;
+    if (f.startsWith('opening')) return draft.openingInputs[Number(f.slice(7))] ?? '';
+    if (f.startsWith('manual:')) return draft.manualInputs[f.slice(7)] ?? '';
     return '';
+  }
+
+  // Тап по полю: оно активно, а старое число выделено
+  function setFocus(f: string) {
+    setFocusRaw(f);
+    setFresh(f !== '' && focusValue(f) !== '');
+  }
+
+  // Число в поле с курсором, если поле активно
+  function shown(v: string, f: string) {
+    const active = focus === f;
+    const g = groupInput(v);
+    if (active && fresh && g) return <span className="rounded bg-accent/40 px-0.5">{g}</span>;
+    return <>{g || (active ? '' : '0')}{active && <Caret />}</>;
   }
 
   function setFocusValue(v: string) {
@@ -366,15 +388,15 @@ export function WorkWizard() {
           {draft.areaMode ? (
             <div className="mt-2">
               <div className="flex flex-wrap gap-2">
-                <button className={chip(focus === 'length')} onClick={() => setFocus('length')}>
-                  {t('wizard.length')}: {draft.lengthInput || '0'}
+                <button className={chip(focus === 'length')} onClick={() => setFocus('length')} data-testid="dim-length">
+                  {t('wizard.length')}: {shown(draft.lengthInput, 'length')}
                 </button>
-                <button className={chip(focus === 'height')} onClick={() => setFocus('height')}>
-                  {t('wizard.height')}: {draft.heightInput || '0'}
+                <button className={chip(focus === 'height')} onClick={() => setFocus('height')} data-testid="dim-height">
+                  {t('wizard.height')}: {shown(draft.heightInput, 'height')}
                 </button>
                 {draft.openingInputs.map((o, i) => (
                   <button key={i} className={chip(focus === `opening${i}`)} onClick={() => setFocus(`opening${i}`)}>
-                    {t('wizard.openings')}: {o || '0'}
+                    {t('wizard.openings')}: {shown(o, `opening${i}`)}
                   </button>
                 ))}
                 <button
@@ -388,8 +410,8 @@ export function WorkWizard() {
             </div>
           ) : (
             <button className="w-full py-3 text-center" onClick={() => setFocus('quantity')} data-testid="quantity-display">
-              <span className={`text-[36px] font-bold ${focus === 'quantity' ? 'text-orange-600' : ''}`}>
-                {draft.quantityInput || '0'}
+              <span className={`text-[36px] font-bold ${focus === 'quantity' ? 'text-ink' : 'text-slate-500'}`}>
+                {shown(draft.quantityInput, 'quantity')}
               </span>
               <span className="ml-2 text-[20px] text-slate-500">{workType.unit}</span>
             </button>
@@ -399,11 +421,11 @@ export function WorkWizard() {
           <div className="mb-3 flex gap-2">
             <button className={`flex-1 ${chip(focus === 'customerPrice')}`} onClick={() => setFocus('customerPrice')} data-testid="customer-price">
               <span className="block text-[13px] text-slate-500">{t('wizard.customerPrice')} {t('wizard.perUnit', { unit: workType.unit })}</span>
-              {draft.customerPriceInput || '0'}
+              {shown(draft.customerPriceInput, 'customerPrice')}
             </button>
             <button className={`flex-1 ${chip(focus === 'workerPrice')}`} onClick={() => setFocus('workerPrice')} data-testid="worker-price">
               <span className="block text-[13px] text-slate-500">{t('wizard.workerPrice')} {t('wizard.perUnit', { unit: workType.unit })}</span>
-              {draft.workerPriceInput || '0'}
+              {shown(draft.workerPriceInput, 'workerPrice')}
             </button>
           </div>
 
@@ -420,9 +442,11 @@ export function WorkWizard() {
           )}
 
           <NumPadPanel
-            label={focusLabel()}
             value={focusValue()}
             onChange={setFocusValue}
+            fresh={fresh}
+            onFreshUsed={() => setFresh(false)}
+            hint={<p className="pb-2 text-center text-[14px] font-semibold text-slate-500">{focusLabel()}</p>}
             action={{ label: t('common.next'), onClick: () => goStep(2), disabled: quantity <= 0, testId: 'next-2' }}
           />
         </div>
@@ -532,7 +556,7 @@ export function WorkWizard() {
               {selectedWorkers.map((w) => (
                 <button key={w.id} className={`flex items-center justify-between ${chip(focus === `manual:${w.id}`)}`} onClick={() => setFocus(`manual:${w.id}`)}>
                   <span>{w.name}</span>
-                  <span className="font-semibold">{draft.manualInputs[w.id] || '0'}</span>
+                  <span className="font-semibold">{shown(draft.manualInputs[w.id] ?? '', `manual:${w.id}`)}</span>
                 </button>
               ))}
             </div>
@@ -540,9 +564,10 @@ export function WorkWizard() {
 
           {draft.splitMode === 'manual' && selectedWorkers.length > 0 ? (
             <NumPadPanel
-              label={focusLabel()}
               value={focusValue()}
               onChange={setFocusValue}
+              fresh={fresh}
+              onFreshUsed={() => setFresh(false)}
               hint={
                 <p className={`pb-2 text-center text-[15px] ${manualRemainder === 0 ? 'text-slate-500' : 'text-money-out font-semibold'}`}>
                   {t('wizard.remainder', { sum: formatMoney(manualRemainder) })}

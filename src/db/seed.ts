@@ -1,8 +1,9 @@
 // Справочник видов работ (seed) и демо-данные «Загрузить пример».
 import { db } from './db';
 import {
-  addObject, addPayout, addExpense, addReceipt, addWorker, addWorkEntry,
+  addObject, addPayout, addExpense, addReceipt, addWorker, addWorkEntry, addCounterparty,
   todayStr, uid, updateSettings, getSettings, upsertRate, acceptWorkEntries,
+  migrateCustomers, migrateWorkerPhones,
 } from './repo';
 import { splitShares } from '../core/calc';
 import { lineTotals } from '../core/calc';
@@ -59,6 +60,9 @@ export async function ensureSeeded(): Promise<void> {
       unit: s.unit, calc: s.calc, isFavorite: s.favorite, sortOrder: i,
     })));
   }
+  // Данные прошлых версий: заказчики-текст → контрагенты, телефоны → с кодом страны
+  await migrateCustomers();
+  await migrateWorkerPhones();
 }
 
 // Расценки объекта из примеров справочника
@@ -78,7 +82,14 @@ interface DemoEntry {
 // Демо-данные: объект БЦ «Триумф», 4 рабочих, 12 записей за две недели,
 // плюс закрытый объект «Склад, Кант» с итогом
 export async function loadDemo(): Promise<void> {
-  const obj = await addObject('БЦ «Триумф»', 'СтройКом', { paymentTerms: 'По акту, раз в неделю' });
+  const stroykom = await addCounterparty({
+    kind: 'company', name: 'СтройКом', contactName: 'Эмиль, прораб',
+    phone: '+996555123456', address: 'Бишкек',
+  });
+  const obj = await addObject('БЦ «Триумф»', stroykom.name, {
+    counterpartyId: stroykom.id, customerPhone: stroykom.phone, address: 'Бишкек, Южная магистраль',
+    payment: { basis: 'volume', splitBy: 'amount', parts: [], actsEvery: 'week', total: som(600_000) },
+  });
   await seedRatesForObject(obj.id);
 
   const azamat = await addWorker('Азамат', 'сварщики', undefined, 4);
@@ -156,7 +167,10 @@ export async function loadDemo(): Promise<void> {
   await addReceipt({ objectId: obj.id, date: todayStr(-3), amount: som(20_000), method: 'cash', kind: 'payment' });
 
   // Закрытый объект: кладка 100 м² принята и оплачена, бригада рассчитана
-  const closed = await addObject('Склад, Кант', 'Частник', {
+  const nurbek = await addCounterparty({ kind: 'person', name: 'Нурбек Осмонов', phone: '+996700987654' });
+  const closed = await addObject('Склад, Кант', nurbek.name, {
+    counterpartyId: nurbek.id, customerPhone: nurbek.phone,
+    payment: { basis: 'volume', splitBy: 'amount', parts: [], actsEvery: 'handover' },
     paymentTerms: 'Наличными после приёмки',
     closedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
   });
@@ -174,6 +188,22 @@ export async function loadDemo(): Promise<void> {
   await addReceipt({ objectId: closed.id, date: todayStr(-32), amount: som(60_000), method: 'cash', kind: 'payment' });
   await addPayout({ objectId: closed.id, workerId: bakyt.id, date: todayStr(-31), amount: som(40_000), method: 'cash', kind: 'payout' });
   await addExpense({ objectId: closed.id, date: todayStr(-35), category: 'transport', amount: som(4_000), paidBy: 'contractor', photoIds: [] });
+
+  // Частный дом за общую сумму: 30 / 40 / 30, аванс получен, коробку строят
+  const asan = await addCounterparty({ kind: 'person', name: 'Асан Акматов', phone: '+996700123456', address: 'с. Кой-Таш' });
+  const house = await addObject('Дом в Кой-Таше', asan.name, {
+    counterpartyId: asan.id, customerPhone: asan.phone, address: 'с. Кой-Таш, ул. Ала-Арча 5',
+    payment: {
+      basis: 'fixed', total: som(1_200_000), splitBy: 'percent',
+      parts: [
+        { id: uid(), title: 'Аванс', percent: 30, amount: som(360_000), trigger: 'start' },
+        { id: uid(), title: 'Коробка и крыша', percent: 40, amount: som(480_000), trigger: 'stage' },
+        { id: uid(), title: 'Сдача дома', percent: 30, amount: som(360_000), trigger: 'stage' },
+      ],
+    },
+  });
+  await seedRatesForObject(house.id);
+  await addReceipt({ objectId: house.id, date: todayStr(-5), amount: som(360_000), method: 'cash', kind: 'advance', note: 'Аванс' });
 
   // Начальный остаток кассы, чтобы «Свободно» было положительным
   const settings = await getSettings();

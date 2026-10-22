@@ -17,13 +17,32 @@ test('скриншоты всех экранов', async ({ page }) => {
   await shot(page, '01-privet');
 
   await page.getByTestId('start-new-object').click();
-  await page.getByTestId('obj-name').fill('БЦ «Триумф»');
-  await page.getByTestId('obj-customer').fill('СтройКом');
+  await page.getByTestId('obj-name').fill('Дом Акматова');
+  await page.getByTestId('cp-new').click();
+  await page.getByTestId('cp-person').click();
+  await page.getByTestId('cp-name').fill('Асан Акматов');
+  await page.getByTestId('cp-phone').fill('700123456');
+  await shot(page, '02a-novyy-kontragent');
+  await page.getByTestId('cp-phone-country').click();
+  await shot(page, '02b-kod-strany');
+  await page.getByTestId('country-KG').click();
+  await page.getByTestId('cp-save').click();
   await shot(page, '02-vzyal-obekt');
   await page.getByTestId('obj-next-1').click();
-  await shot(page, '03-ceny');
+  await page.getByTestId('basis-fixed').click();
+  await page.getByTestId('plan-total').click();
+  await typeNum(page, '1500000');
+  await shot(page, '03a-summa-v-pole');
+  await page.getByTestId('keypad-done').click();
+  await page.getByTestId('preset-30-40-30').click();
+  await shot(page, '03b-oplata-chastyami');
   await page.getByTestId('obj-next-2').click();
-  await page.getByTestId('team-name').fill('Азамат');
+  await shot(page, '03-ceny');
+  await page.getByTestId('obj-next-3').click();
+  await page.getByTestId('team-name').fill('Асан');
+  await page.getByTestId('team-headcount').click();
+  await typeNum(page, '5');
+  await page.getByTestId('keypad-done').click();
   await shot(page, '04-brigada-start');
   await page.goto('/#/');
 
@@ -70,6 +89,9 @@ test('скриншоты всех экранов', async ({ page }) => {
   await page.getByTestId('menu-prices').click();
   await shot(page, '18-ceny-i-zakazchik');
   await page.goBack();
+  await page.getByTestId('menu-contract').click();
+  await shot(page, '18a-zakazchik-i-oplata');
+  await page.goBack();
   await page.getByTestId('menu-result').click();
   await shot(page, '19-itog-obekta');
   await page.goBack();
@@ -92,4 +114,9 @@ test('скриншоты всех экранов', async ({ page }) => {
 
   await page.goto('/#/settings');
   await shot(page, '26-nastroyki');
+
+  await page.goto('/#/counterparties');
+  await shot(page, '27-kontragenty');
+  await page.getByTestId('cp-row-СтройКом').click();
+  await shot(page, '28-kontragent');
 });

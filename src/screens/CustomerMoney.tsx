@@ -5,10 +5,11 @@ import { formatMoney } from '../core/format';
 import { useView } from '../state/view';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
-import { Card, KvRow, SectionTitle, Tag } from '../components/ui';
+import { PlanSchedule } from '../components/PlanSchedule';
+import { Card, FeedItem, KvRow, SectionTitle } from '../components/ui';
 import { CustomerModeButton } from '../components/CustomerModeButton';
 
-// Деньги заказчика: аванс, поступления, удержания, «заказчик должен»
+// Деньги заказчика: график оплаты, поступления, удержания, «заказчик должен»
 export function CustomerMoney() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
@@ -16,19 +17,22 @@ export function CustomerMoney() {
   const { id = '' } = useParams();
   const s = useObjectSummary(id);
   const customerMode = useView((v) => v.customerMode);
+  const showPlan = s.object?.payment && (s.fixed || s.statuses.length > 0 || s.object.payment.actsEvery || s.object.payment.total);
 
   return (
     <div className="flex min-h-screen flex-col bg-paper pb-6">
       <ScreenHeader title={t('object.customerMoney')} sub={s.object?.customerName ?? s.object?.name} right={<CustomerModeButton />} />
       <div className="flex flex-col gap-3 px-4">
         <Card>
-          <KvRow label={t('object.acceptedByCustomer')} value={formatMoney(s.accepted)} />
+          {s.fixed
+            ? <KvRow label={t('plan.handedStages')} value={formatMoney(s.dueSum)} />
+            : <KvRow label={t('object.acceptedByCustomer')} value={formatMoney(s.accepted)} />}
           <KvRow label={t('object.customerPaid')} value={formatMoney(s.received)} tone="in" />
           {s.withheld > 0 && <KvRow label={t('object.withheld')} value={`−${formatMoney(s.withheld)}`} tone="out" />}
           {s.advanceLeft > 0
-            ? <KvRow label={t('object.advanceLeft')} value={formatMoney(s.advanceLeft)} strong />
+            ? <KvRow label={s.fixed ? t('plan.paidAhead') : t('object.advanceLeft')} value={formatMoney(s.advanceLeft)} strong />
             : <KvRow label={t('object.customerOwes')} value={formatMoney(s.owedToMe)} strong tone="in" />}
-          {!customerMode && <KvRow label={t('object.notHanded')} value={formatMoney(s.notAccepted)} />}
+          {!customerMode && !s.fixed && <KvRow label={t('object.notHanded')} value={formatMoney(s.notAccepted)} />}
         </Card>
 
         <div className="grid grid-cols-2 gap-2">
@@ -36,28 +40,39 @@ export function CustomerMoney() {
           <BigButton label={t('customerMoney.withhold')} tone="neutral" onClick={() => navigate(`/adjustment/new?objectId=${id}`)} testId="btn-adjustment" />
         </div>
 
+        {showPlan && s.object && (
+          <>
+            <SectionTitle>{t('plan.schedule')}</SectionTitle>
+            <PlanSchedule object={s.object} statuses={s.statuses} received={s.received} done={s.done} readOnly={customerMode} />
+          </>
+        )}
+
         <SectionTitle>{t('details.receipts')}</SectionTitle>
         {s.objReceipts.slice().sort((a, b) => b.date.localeCompare(a.date)).map((r) => (
-          <button key={r.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(`/record/receipt/${r.id}`)}>
-            <Tag kind="rec" label={t(r.kind === 'advance' ? 'feed.customerAdvance' : 'feed.receipt')} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[16px] font-semibold">{t(r.method === 'cash' ? 'payout.cash' : 'payout.transfer')}</span>
-              <span className="block text-[13px] font-medium text-slate-500">{formatDateShort(r.date, lang)}{r.note ? ` · ${r.note}` : ''}</span>
-            </span>
-            <span className="text-[17px] font-extrabold text-money-in">+{formatMoney(r.amount)}</span>
-          </button>
+          <FeedItem
+            key={r.id}
+            tagKind="rec"
+            tagLabel={t(r.kind === 'advance' ? 'feed.customerAdvance' : 'feed.receipt')}
+            title={t(r.method === 'cash' ? 'payout.cash' : 'payout.transfer')}
+            sub={[formatDateShort(r.date, lang), r.note].filter(Boolean).join(' · ')}
+            amount={`+${formatMoney(r.amount)}`}
+            tone="in"
+            onClick={() => navigate(`/record/receipt/${r.id}`)}
+          />
         ))}
         {s.objReceipts.length === 0 && <p className="px-1 text-[14px] text-slate-400">{t('common.empty')}</p>}
 
         <SectionTitle>{t('details.adjustments')}</SectionTitle>
         {s.objAdjustments.slice().sort((a, b) => b.date.localeCompare(a.date)).map((a) => (
-          <button key={a.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(`/record/adjustment/${a.id}`)}>
-            <Tag kind="grey" label={t(`adjustment.${a.kind}`)} />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium text-slate-500">{formatDateShort(a.date, lang)}{a.note ? ` · ${a.note}` : ''}</span>
-            </span>
-            <span className="text-[17px] font-extrabold">−{formatMoney(a.amount)}</span>
-          </button>
+          <FeedItem
+            key={a.id}
+            tagKind="grey"
+            tagLabel={t('feed.adjustment')}
+            title={t(`adjustment.${a.kind}`)}
+            sub={[formatDateShort(a.date, lang), a.note].filter(Boolean).join(' · ')}
+            amount={`−${formatMoney(a.amount)}`}
+            onClick={() => navigate(`/record/adjustment/${a.id}`)}
+          />
         ))}
         {s.objAdjustments.length === 0 && <p className="px-1 text-[14px] text-slate-400">{t('customerMoney.noWithholds')}</p>}
       </div>

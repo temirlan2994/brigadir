@@ -24,7 +24,11 @@ export function CloseObject() {
   if (!o) return <ScreenHeader title="" />;
 
   const checks = [
-    { ok: s.notAccepted === 0, title: t('close.allAccepted'), sub: s.notAccepted === 0 ? t('close.ok') : t('close.notAcceptedLeft', { sum: formatMoney(s.notAccepted) }) },
+    {
+      ok: s.notAccepted === 0,
+      title: s.fixed ? t('close.allStages') : t('close.allAccepted'),
+      sub: s.notAccepted === 0 ? t('close.ok') : t(s.fixed ? 'close.stagesLeft' : 'close.notAcceptedLeft', { sum: formatMoney(s.notAccepted) }),
+    },
     { ok: s.owedToMe <= 0, title: t('close.customerPaid'), sub: s.owedToMe <= 0 ? t('close.ok') : t('close.customerOwesLeft', { sum: formatMoney(s.owedToMe) }) },
     { ok: home.owed === 0, title: t('close.teamSettled'), sub: home.owed === 0 ? t('close.ok') : t('close.teamOwedLeft', { sum: formatMoney(home.owed) }) },
   ];

@@ -11,7 +11,7 @@ import { useToast } from '../state/toast';
 import { Tile } from '../components/Tile';
 import { BigButton } from '../components/BigButton';
 import { Sheet } from '../components/Sheet';
-import { Card, DarkCard, Pill, SectionTitle, Tag } from '../components/ui';
+import { Card, DarkCard, FeedItem, Pill, SectionTitle } from '../components/ui';
 
 // «Сегодня»: свободно ли на зарплату, одна большая кнопка «Записать работу», лента
 export function Today() {
@@ -110,14 +110,14 @@ export function Today() {
         <div className="grid grid-cols-2 gap-3">
           <Card className="!p-3.5" onClick={() => sum.activeObject && navigate(`/objects/${sum.activeObject.id}/money`)} testId="owed-to-me">
             <span className="block text-[14px] font-medium text-slate-500">
-              {sum.advanceLeft > 0 ? t('today.advanceLeft') : t('today.customerOwes')}
+              {sum.advanceLeft > 0 ? (sum.fixed ? t('plan.paidAhead') : t('today.advanceLeft')) : t('today.customerOwes')}
             </span>
             <span className={`block whitespace-nowrap text-[20px] font-extrabold ${sum.advanceLeft > 0 ? 'text-ink' : 'text-money-in'}`}>
               {formatMoney(sum.advanceLeft > 0 ? sum.advanceLeft : sum.owedToMe)}
             </span>
           </Card>
           <Card className="!p-3.5" onClick={() => sum.activeObject && navigate(`/objects/${sum.activeObject.id}/handover`)} testId="not-handed">
-            <span className="block text-[14px] font-medium text-slate-500">{t('today.notHanded')}</span>
+            <span className="block text-[14px] font-medium text-slate-500">{sum.fixed ? t('plan.notHandedStages') : t('today.notHanded')}</span>
             <span className="block whitespace-nowrap text-[20px] font-extrabold">{formatMoney(sum.notAccepted)}</span>
           </Card>
         </div>
@@ -154,16 +154,16 @@ export function Today() {
           <div key={g.label} className="flex flex-col gap-2">
             <SectionTitle>{g.label}</SectionTitle>
             {g.rows.map((row) => (
-              <button key={row.key} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(row.to)}>
-                <Tag kind={row.tagKind} label={t(row.typeKey)} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[16px] font-semibold">{row.title}</span>
-                  {row.sub && <span className="block truncate text-[13px] font-medium text-slate-500">{row.sub}</span>}
-                </span>
-                <span className={`text-[17px] font-extrabold ${row.tone === 'in' ? 'text-money-in' : row.tone === 'out' ? 'text-money-out' : ''}`}>
-                  {row.amountText}
-                </span>
-              </button>
+              <FeedItem
+                key={row.key}
+                tagKind={row.tagKind}
+                tagLabel={t(row.typeKey)}
+                title={row.title}
+                sub={row.sub}
+                amount={row.amountText}
+                tone={row.tone}
+                onClick={() => navigate(row.to)}
+              />
             ))}
           </div>
         ))}

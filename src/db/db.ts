@@ -1,9 +1,9 @@
-// База Dexie: foremanDb, версия 1.
+// База Dexie: foremanDb.
 import Dexie, { type Table } from 'dexie';
 import type {
   Settings, SiteObject, WorkType, Rate, Worker, WorkEntry,
   Payout, Expense, Receipt, CustomerAdjustment, Photo, ChangeLog,
-  CashMove, Attendance,
+  CashMove, Attendance, Counterparty,
 } from './types';
 
 export class ForemanDb extends Dexie {
@@ -21,6 +21,7 @@ export class ForemanDb extends Dexie {
   changeLog!: Table<ChangeLog, string>;
   cashMoves!: Table<CashMove, string>;
   attendance!: Table<Attendance, string>;
+  counterparties!: Table<Counterparty, string>;
 
   constructor() {
     super('foremanDb');
@@ -40,10 +41,17 @@ export class ForemanDb extends Dexie {
     };
     this.version(1).stores(v1);
     // v2: личные движения кассы и «кто вышел»
-    this.version(2).stores({
+    const v2 = {
       ...v1,
       cashMoves: 'id, date, deletedAt',
       attendance: 'id, objectId, date, [objectId+date]',
+    };
+    this.version(2).stores(v2);
+    // v3: контрагенты; заказчики старых объектов переносятся в ensureSeeded
+    this.version(3).stores({
+      ...v2,
+      objects: 'id, createdAt, counterpartyId',
+      counterparties: 'id, name, createdAt',
     });
   }
 }

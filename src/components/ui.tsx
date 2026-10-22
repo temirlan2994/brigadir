@@ -66,6 +66,32 @@ export function Tag({ kind, label }: { kind: 'work' | 'pay' | 'exp' | 'rec' | 'g
   return <span className={`shrink-0 rounded-lg px-2 py-0.5 text-[12px] font-extrabold uppercase tracking-wide ${cls}`}>{label}</span>;
 }
 
+// Строка ленты: сверху что и сколько, снизу метка типа и подробности.
+// Метка не отнимает место у названия — «Аванс заказчика» не обрезает «Наличные»
+export function FeedItem({ tagKind, tagLabel, title, sub, amount, tone, onClick }: {
+  tagKind: 'work' | 'pay' | 'exp' | 'rec' | 'grey';
+  tagLabel: string;
+  title: string;
+  sub?: string;
+  amount: string;
+  tone?: 'in' | 'out' | 'muted' | 'plain';
+  onClick: () => void;
+}) {
+  const color = tone === 'in' ? 'text-money-in' : tone === 'out' ? 'text-money-out' : tone === 'muted' ? 'text-slate-500' : '';
+  return (
+    <button className="flex w-full flex-col gap-1.5 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={onClick}>
+      <span className="flex w-full items-baseline justify-between gap-3">
+        <span className="min-w-0 truncate text-[16px] font-semibold">{title}</span>
+        <span className={`shrink-0 text-[17px] font-extrabold ${color}`}>{amount}</span>
+      </span>
+      <span className="flex w-full min-w-0 items-center gap-2">
+        <Tag kind={tagKind} label={tagLabel} />
+        {sub && <span className="min-w-0 truncate text-[13px] font-medium text-slate-500">{sub}</span>}
+      </span>
+    </button>
+  );
+}
+
 // Маленькая плашка-статус
 export function Pill({ tone, children }: { tone: 'yellow' | 'green' | 'red' | 'grey'; children: ReactNode }) {
   const cls = {
@@ -106,22 +132,67 @@ export function StageStrip({ stage }: { stage: ObjectStage }) {
 }
 
 // Поле формы с подписью (системная клавиатура — только для текста)
-export function TextField({ label, value, onChange, placeholder, inputMode, autoFocus, testId }: {
+export function TextField({ label, value, onChange, placeholder, inputMode, autoFocus, testId, autoComplete, className = '' }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-  inputMode?: 'text' | 'tel'; autoFocus?: boolean; testId?: string;
+  inputMode?: 'text' | 'tel' | 'numeric'; autoFocus?: boolean; testId?: string;
+  autoComplete?: string; className?: string;
 }) {
   return (
-    <label className="block rounded-[16px] border-[1.5px] border-line bg-white px-3.5 py-2.5">
+    <label className={`block rounded-[16px] border-[1.5px] border-line bg-white px-3.5 py-2.5 focus-within:border-ink ${className}`}>
       <span className="block text-[12px] font-semibold text-slate-500">{label}</span>
       <input
         data-testid={testId}
         autoFocus={autoFocus}
         inputMode={inputMode}
+        autoComplete={autoComplete ?? 'off'}
         className="mt-0.5 w-full bg-transparent text-[18px] font-semibold outline-none placeholder:font-medium placeholder:text-slate-400"
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
       />
     </label>
+  );
+}
+
+// Кружок с первыми буквами имени
+export function Initials({ name, size = 44, dark }: { name: string; size?: number; dark?: boolean }) {
+  const letters = name.replace(/[«»"']/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-full font-extrabold ${dark ? 'bg-dark text-white' : 'bg-[#ece8df] text-ink'}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      aria-hidden="true"
+    >
+      {letters || '?'}
+    </span>
+  );
+}
+
+// Подпись над группой полей
+export function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="block px-1 pb-1 text-[13px] font-bold text-slate-600">{children}</span>;
+}
+
+// Кнопки-фишки: выбор одного из нескольких (необязательный)
+export function Chips<T extends string>({ options, value, onChange, testIdPrefix }: {
+  options: { value: T; label: string }[];
+  value: T | undefined;
+  onChange: (v: T | undefined) => void;
+  testIdPrefix?: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          data-testid={testIdPrefix ? `${testIdPrefix}-${o.value}` : undefined}
+          className={`min-h-[44px] rounded-full px-4 text-[15px] font-bold ${value === o.value ? 'bg-ink text-white' : 'bg-white text-ink shadow-card'}`}
+          onClick={() => onChange(value === o.value ? undefined : o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { db } from '../db/db';
 import { DEFAULT_SETTINGS } from '../db/repo';
 import type {
   CustomerAdjustment, Expense, Payout, Receipt, Settings,
-  SiteObject, WorkEntry, Worker, WorkType, CashMove, Attendance,
+  SiteObject, WorkEntry, Worker, WorkType, CashMove, Attendance, Counterparty,
 } from '../db/types';
 
 export function useSettings(): Settings {
@@ -67,6 +67,12 @@ export function useAttendance(objectId: string | undefined, date: string): Atten
 
 export function useObject(id: string | undefined): SiteObject | undefined {
   return useLiveQuery(async () => (id ? await db.objects.get(id) : undefined), [id]);
+}
+
+// Контрагенты по алфавиту
+export function useCounterparties(): Counterparty[] {
+  const rows = useLiveQuery(() => db.counterparties.toArray(), []) ?? [];
+  return [...rows].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
 
 // Фильтр по объекту

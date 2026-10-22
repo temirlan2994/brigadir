@@ -17,12 +17,57 @@ export interface Settings {
 export interface SiteObject {
   id: string;
   name: string;
+  address?: string;
+  counterpartyId?: string; // заказчик — кто платит
+  // Снимок имени и телефона заказчика: экраны и акты читают их без поиска контрагента
   customerName?: string;
   customerPhone?: string;
-  paymentTerms?: string; // как платит заказчик, своими словами
+  payment?: PaymentPlan;
+  paymentTerms?: string; // другие договорённости о деньгах, своими словами
   createdAt: string;
   archivedAt?: string;
   closedAt?: string; // объект закрыт: расчёты завершены
+}
+
+// Контрагент: компания или человек, который платит. Сохраняется и выбирается снова.
+export interface Counterparty {
+  id: string;
+  kind: 'company' | 'person';
+  name: string; // название компании или ФИО
+  contactName?: string; // кто на связи у компании
+  phone?: string; // +996555123456
+  inn?: string;
+  address?: string;
+  note?: string;
+  createdAt: string;
+  updatedAt?: string;
+  archivedAt?: string;
+}
+
+// Когда наступает часть оплаты: сразу (аванс), после этапа (отметишь «сдан») или к дате
+export type PartTrigger = 'start' | 'stage' | 'date';
+
+export interface PlanPart {
+  id: string;
+  title: string;
+  percent?: number; // доля, если делили в процентах
+  amount: Money;
+  trigger: PartTrigger;
+  dueDate?: string; // YYYY-MM-DD
+  doneAt?: string; // этап сдан — часть стала к оплате
+}
+
+export type ActsEvery = 'week' | 'twoWeeks' | 'month' | 'handover';
+
+// Как платит заказчик.
+// volume — за принятые объёмы по ценам за единицу (плюс аванс);
+// fixed — общая сумма за объект, частями
+export interface PaymentPlan {
+  basis: 'volume' | 'fixed';
+  total?: Money; // сумма договора или смета
+  splitBy: 'percent' | 'amount';
+  parts: PlanPart[];
+  actsEvery?: ActsEvery;
 }
 
 // Стадия объекта по данным: что уже произошло

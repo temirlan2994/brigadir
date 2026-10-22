@@ -13,8 +13,10 @@ import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
 import { Sheet } from '../components/Sheet';
-import { NumSheet } from '../components/NumSheet';
+import { NumField } from '../components/NumField';
+import { PhoneField } from '../components/PhoneField';
 import { Card, SectionTitle, TextField } from '../components/ui';
+import { formatPhone } from '../core/phone';
 import { wtLabel } from '../lib/summary';
 
 // Рабочий: осталось выдать, по дням, «Выдать», «Выписка»
@@ -29,7 +31,6 @@ export function WorkerCard() {
   const payouts = usePayouts();
   const workTypes = useWorkTypes();
   const [editing, setEditing] = useState(false);
-  const [headSheet, setHeadSheet] = useState(false);
   const [form, setForm] = useState({ name: '', specialty: '', phone: '', headcount: '' });
 
   const worker = workers.find((w) => w.id === id);
@@ -106,7 +107,7 @@ export function WorkerCard() {
         title={worker.name}
         sub={[
           worker.headcount ? t('workers.headcountShort', { n: worker.headcount }) : undefined,
-          worker.specialty, worker.phone,
+          worker.specialty, formatPhone(worker.phone),
         ].filter(Boolean).join(' · ') || undefined}
         right={
           <button className="min-h-[44px] rounded-full bg-white px-3 text-[13px] font-bold shadow-card" onClick={() => {
@@ -167,14 +168,17 @@ export function WorkerCard() {
         <Sheet onClose={() => setEditing(false)}>
           <TextField label={t('workers.name')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
           <TextField label={t('workers.specialty')} value={form.specialty} onChange={(v) => setForm({ ...form, specialty: v })} />
-          <TextField label={t('workers.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} inputMode="tel" />
-          <button
-            className="flex min-h-[56px] items-center justify-between rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-left"
-            onClick={() => setHeadSheet(true)}
-          >
-            <span className="text-[12px] font-semibold text-slate-500">{t('workers.headcount')}</span>
-            <span className="text-[18px] font-bold">{form.headcount || '—'}</span>
-          </button>
+          <PhoneField label={t('workers.phone')} value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} testId="worker-edit-phone" />
+          <NumField
+            label={t('workers.headcount')}
+            value={form.headcount}
+            onChange={(v) => setForm((f) => ({ ...f, headcount: v }))}
+            decimals={0}
+            maxDigits={3}
+            suffix={t('newObject.peopleShort')}
+            placeholder="—"
+            testId="worker-edit-headcount"
+          />
           <BigButton
             label={t('common.save')}
             tone="dark"
@@ -191,14 +195,6 @@ export function WorkerCard() {
             }}
           />
         </Sheet>
-      )}
-      {headSheet && (
-        <NumSheet
-          title={t('workers.headcount')}
-          initial={form.headcount}
-          onClose={() => setHeadSheet(false)}
-          onSave={(v) => setForm({ ...form, headcount: v })}
-        />
       )}
     </div>
   );

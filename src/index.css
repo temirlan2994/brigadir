@@ -16,6 +16,8 @@ html {
 
 body {
   margin: 0;
+  /* Открыт нампад — снизу место под него, чтобы поле можно было прокрутить выше */
+  padding-bottom: var(--kb-h, 0px);
   font-family: Inter, Roboto, system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 18px;
   color: var(--ink);
@@ -34,6 +36,22 @@ textarea {
 
 button {
   touch-action: manipulation;
+}
+
+/* Курсор в числовом поле */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: caret-blink 1s step-end infinite;
 }
 
 /* Печать акта: без навигации, белый фон */

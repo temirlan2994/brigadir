@@ -2,9 +2,10 @@
 import { db } from './db';
 import type {
   ChangeLog, CustomerAdjustment, Expense, Payout, Rate, Receipt,
-  Settings, SiteObject, WorkEntry, Worker, WorkType, Money, CashMove,
+  Settings, SiteObject, WorkEntry, Worker, WorkType, Money, CashMove, Counterparty,
 } from './types';
 import { lineTotals } from '../core/calc';
+import { parsePhone, toE164 } from '../core/phone';
 
 export const uid = () => crypto.randomUUID();
 export const nowIso = () => new Date().toISOString();
@@ -52,6 +53,79 @@ export async function addObject(
 export async function updateObject(id: string, patch: Partial<SiteObject>) {
   await db.objects.update(id, patch);
   await log('object', id, 'update', patch.name ?? '');
+}
+
+// --- Контрагенты ---
+
+export async function addCounterparty(data: Omit<Counterparty, 'id' | 'createdAt'>): Promise<Counterparty> {
+  const row: Counterparty = { ...data, id: uid(), createdAt: nowIso() };
+  await db.counterparties.add(row);
+  await log('counterparty', row.id, 'create', row.name);
+  return row;
+}
+
+// Правка контрагента обновляет снимок имени и телефона во всех его объектах
+export async function updateCounterparty(id: string, patch: Partial<Counterparty>) {
+  await db.transaction('rw', db.counterparties, db.objects, db.changeLog, async () => {
+    await db.counterparties.update(id, { ...patch, updatedAt: nowIso() });
+    const cp = await db.counterparties.get(id);
+    if (cp) {
+      await db.objects.where('counterpartyId').equals(id).modify({
+        customerName: cp.name, customerPhone: cp.phone,
+      });
+    }
+    await log('counterparty', id, 'update', patch.name ?? '');
+  });
+}
+
+// Назначить объекту заказчика (или снять)
+export async function setObjectCounterparty(objectId: string, counterpartyId: string | undefined) {
+  const cp = counterpartyId ? await db.counterparties.get(counterpartyId) : undefined;
+  await updateObject(objectId, {
+    counterpartyId: cp?.id, customerName: cp?.name, customerPhone: cp?.phone,
+  });
+}
+
+// Старые объекты хранили заказчика текстом: заводим по нему контрагента.
+// Повторный запуск ничего не меняет; одинаковые имена — один контрагент
+export async function migrateCustomers() {
+  const objects = await db.objects.toArray();
+  const pending = objects.filter((o) => !o.counterpartyId && o.customerName?.trim());
+  if (pending.length === 0) return;
+  const existing = await db.counterparties.toArray();
+  const byName = new Map(existing.map((c) => [c.name.trim().toLowerCase(), c]));
+  for (const o of pending) {
+    const name = o.customerName!.trim();
+    const key = name.toLowerCase();
+    const phone = o.customerPhone ? normalizePhone(o.customerPhone) : undefined;
+    let cp = byName.get(key);
+    if (!cp) {
+      cp = await addCounterparty({ kind: 'company', name, phone });
+      byName.set(key, cp);
+    } else if (!cp.phone && phone) {
+      await db.counterparties.update(cp.id, { phone });
+      cp = { ...cp, phone };
+      byName.set(key, cp);
+    }
+    await db.objects.update(o.id, { counterpartyId: cp.id, customerName: cp.name, customerPhone: cp.phone ?? phone });
+  }
+}
+
+// Телефон, записанный когда-то текстом, — в вид +996555123456; непонятный — как был
+export function normalizePhone(raw: string): string {
+  const { country, national } = parsePhone(raw);
+  return national.length >= 6 ? toE164(country, national) : raw.trim();
+}
+
+// Телефоны бригадиров из старых версий — тоже с кодом страны
+export async function migrateWorkerPhones() {
+  const workers = await db.workers.toArray();
+  for (const w of workers) {
+    if (w.phone && !w.phone.startsWith('+')) {
+      const phone = normalizePhone(w.phone);
+      if (phone !== w.phone) await db.workers.update(w.id, { phone });
+    }
+  }
 }
 
 // --- Расценки ---

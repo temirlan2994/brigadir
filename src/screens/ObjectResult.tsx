@@ -62,7 +62,11 @@ export function ObjectResult() {
         </DarkCard>
 
         <Card>
-          <KvRow label={closed ? t('object.customerPaid') : t('object.doneAll')} value={formatMoney(closed ? s.received : s.done)} tone="in" />
+          <KvRow
+            label={closed ? t('object.customerPaid') : s.fixed ? t('plan.contract') : t('object.doneAll')}
+            value={formatMoney(closed ? s.received : s.revenue)}
+            tone="in"
+          />
           <KvRow label={t('result.team')} value={`−${formatMoney(s.workersSum)}`} tone="out" />
           <KvRow label={t('result.expenses')} value={`−${formatMoney(s.contractorExp)}`} tone="out" />
           {(closed ? s.taxFact : s.tax) > 0 && <KvRow label={t('profit.tax')} value={`−${formatMoney(closed ? s.taxFact : s.tax)}`} tone="out" />}

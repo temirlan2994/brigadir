@@ -7,6 +7,7 @@ import { useLangStore } from './i18n';
 import { BottomNav } from './components/BottomNav';
 import { Toast } from './components/Toast';
 import { UpdateBanner } from './components/UpdateBanner';
+import { KeypadHost } from './components/KeypadHost';
 import { Today } from './screens/Today';
 import { Objects } from './screens/Objects';
 import { NewObjectWizard } from './screens/NewObjectWizard';
@@ -16,6 +17,8 @@ import { Handover } from './screens/Handover';
 import { CustomerMoney } from './screens/CustomerMoney';
 import { ObjectMoneyOut } from './screens/ObjectMoneyOut';
 import { ObjectPrices } from './screens/ObjectPrices';
+import { ObjectContract } from './screens/ObjectContract';
+import { Counterparties, CounterpartyCard } from './screens/Counterparties';
 import { ObjectResult } from './screens/ObjectResult';
 import { CloseObject } from './screens/CloseObject';
 import { Team } from './screens/Team';
@@ -77,6 +80,9 @@ export default function App() {
           <Route path="/objects/:id/money" element={<CustomerMoney />} />
           <Route path="/objects/:id/expenses" element={<ObjectMoneyOut />} />
           <Route path="/objects/:id/prices" element={<ObjectPrices />} />
+          <Route path="/objects/:id/contract" element={<ObjectContract />} />
+          <Route path="/counterparties" element={<Counterparties />} />
+          <Route path="/counterparties/:id" element={<CounterpartyCard />} />
           <Route path="/objects/:id/result" element={<ObjectResult />} />
           <Route path="/objects/:id/close" element={<CloseObject />} />
           <Route path="/team/:id" element={<WorkerCard />} />
@@ -94,6 +100,7 @@ export default function App() {
         </Routes>
         <Toast />
         <UpdateBanner />
+        <KeypadHost />
       </div>
     </HashRouter>
   );

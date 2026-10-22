@@ -8,7 +8,7 @@ import { formatMoney } from '../core/format';
 import { updateSettings } from '../db/repo';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
-import { Card, KvRow, SectionTitle, Tag } from '../components/ui';
+import { Card, FeedItem, KvRow, SectionTitle } from '../components/ui';
 
 // Мои расходы и выдачи по этому объекту — вторая половина PNL
 export function ObjectMoneyOut() {
@@ -63,27 +63,31 @@ export function ObjectMoneyOut() {
 
         <SectionTitle>{t('objectOut.myExpenses')}</SectionTitle>
         {myExpenses.map((e) => (
-          <button key={e.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(`/record/expense/${e.id}`)}>
-            <Tag kind="exp" label={t('feed.expense')} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[16px] font-semibold">{t(`expense.${e.category}`)}</span>
-              <span className="block text-[13px] font-medium text-slate-500">{formatDateShort(e.date, lang)}{e.note ? ` · ${e.note}` : ''}</span>
-            </span>
-            <span className="text-[17px] font-extrabold text-money-out">−{formatMoney(e.amount)}</span>
-          </button>
+          <FeedItem
+            key={e.id}
+            tagKind="exp"
+            tagLabel={t('feed.expense')}
+            title={t(`expense.${e.category}`)}
+            sub={[formatDateShort(e.date, lang), e.note].filter(Boolean).join(' · ')}
+            amount={`−${formatMoney(e.amount)}`}
+            tone="out"
+            onClick={() => navigate(`/record/expense/${e.id}`)}
+          />
         ))}
         {myExpenses.length === 0 && <p className="px-1 text-[14px] text-slate-400">{t('common.empty')}</p>}
 
         <SectionTitle>{t('objectOut.payouts')}</SectionTitle>
         {objPayouts.map((p) => (
-          <button key={p.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(`/record/payout/${p.id}`)}>
-            <Tag kind={p.kind === 'deduction' ? 'grey' : 'pay'} label={t(p.kind === 'advance' ? 'feed.advance' : p.kind === 'deduction' ? 'feed.deduction' : 'feed.payout')} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[16px] font-semibold">{workerName(p.workerId)}</span>
-              <span className="block text-[13px] font-medium text-slate-500">{formatDateShort(p.date, lang)}</span>
-            </span>
-            <span className="text-[17px] font-extrabold text-money-out">−{formatMoney(p.amount)}</span>
-          </button>
+          <FeedItem
+            key={p.id}
+            tagKind={p.kind === 'deduction' ? 'grey' : 'pay'}
+            tagLabel={t(p.kind === 'advance' ? 'feed.advance' : p.kind === 'deduction' ? 'feed.deduction' : 'feed.payout')}
+            title={workerName(p.workerId)}
+            sub={[formatDateShort(p.date, lang), p.note].filter(Boolean).join(' · ')}
+            amount={`−${formatMoney(p.amount)}`}
+            tone="out"
+            onClick={() => navigate(`/record/payout/${p.id}`)}
+          />
         ))}
         {objPayouts.length === 0 && <p className="px-1 text-[14px] text-slate-400">{t('common.empty')}</p>}
 
@@ -91,14 +95,16 @@ export function ObjectMoneyOut() {
           <>
             <SectionTitle>{t('money.customerExpenses')}</SectionTitle>
             {customerExpenses.map((e) => (
-              <button key={e.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(`/record/expense/${e.id}`)}>
-                <Tag kind="grey" label={t('feed.expense')} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[16px] font-semibold">{t(`expense.${e.category}`)}</span>
-                  <span className="block text-[13px] font-medium text-slate-500">{formatDateShort(e.date, lang)}</span>
-                </span>
-                <span className="text-[17px] font-extrabold text-slate-500">{formatMoney(e.amount)}</span>
-              </button>
+              <FeedItem
+                key={e.id}
+                tagKind="grey"
+                tagLabel={t('feed.expense')}
+                title={t(`expense.${e.category}`)}
+                sub={[formatDateShort(e.date, lang), e.note].filter(Boolean).join(' · ')}
+                amount={formatMoney(e.amount)}
+                tone="muted"
+                onClick={() => navigate(`/record/expense/${e.id}`)}
+              />
             ))}
           </>
         )}

@@ -1,41 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
-import { useWorkers, useWorkTypes } from '../lib/hooks';
+import { useCounterparties, useWorkers, useWorkTypes } from '../lib/hooks';
 import { WORK_TYPE_SEED } from '../db/seed';
 import { addObject, addReceipt, addWorker, todayStr, updateSettings, upsertRate } from '../db/repo';
-import { formatMoney, somsToTyiyn } from '../core/format';
+import { formatMoney, parseDecimal, somsToTyiyn } from '../core/format';
+import { checkPlan } from '../core/plan';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
-import { NumSheet } from '../components/NumSheet';
+import { NumField } from '../components/NumField';
+import { CounterpartyPicker } from '../components/CounterpartyPicker';
+import { EMPTY_PLAN, PaymentPlanEditor } from '../components/PaymentPlanEditor';
 import { TextField } from '../components/ui';
 import { WorkerCircle } from '../components/WorkerCircle';
 import { wtLabel } from '../lib/summary';
+import type { PaymentPlan } from '../db/types';
 
-const STEPS = ['object', 'prices', 'team'] as const;
+const STEPS = ['object', 'pay', 'prices', 'team'] as const;
 
 interface PriceRow { workTypeId: string; on: boolean; customer: string; worker: string }
+interface TeamRow { name: string; headcount: string }
 
-// Взял объект → о каких ценах договорились → кто в бригаде. Один раз на объект.
+// Взял объект → как платит заказчик → о каких ценах договорились → кто бригадиры.
+// Один раз на объект; он же — первый запуск.
 export function NewObjectWizard() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const step = Math.min(2, Math.max(0, Number(params.get('step') ?? '0') || 0));
+  const step = Math.min(STEPS.length - 1, Math.max(0, Number(params.get('step') ?? '0') || 0));
   const workTypes = useWorkTypes();
   const workers = useWorkers();
+  const counterparties = useCounterparties();
 
   const [name, setName] = useState('');
-  const [customer, setCustomer] = useState('');
-  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [cpId, setCpId] = useState<string | undefined>();
+  const [plan, setPlan] = useState<PaymentPlan>(EMPTY_PLAN);
+  const [received, setReceived] = useState<string[]>([]);
   const [terms, setTerms] = useState('');
-  const [advance, setAdvance] = useState('');
   const [prices, setPrices] = useState<PriceRow[]>([]);
-  const [newNames, setNewNames] = useState<string[]>([]);
-  const [draftName, setDraftName] = useState('');
-  const [sheet, setSheet] = useState<{ title: string; initial: string; save: (v: string) => void } | null>(null);
+  const [team, setTeam] = useState<TeamRow[]>([]);
+  const [draft, setDraft] = useState<TeamRow>({ name: '', headcount: '' });
   const [saving, setSaving] = useState(false);
   // Запись истории, с которой начался мастер: по ней снимаем все шаги после завершения
   const entryIdxRef = useRef<number | null>(null);
@@ -65,22 +72,52 @@ export function NewObjectWizard() {
     navigate(`?step=${n}`);
   }
 
+  // Новый шаг открывается сверху, а не там, где прокрутили прошлый
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
+
+  function setPrice(id: string, patch: Partial<PriceRow>) {
+    setPrices((ps) => ps.map((x) => (x.workTypeId === id ? { ...x, ...patch } : x)));
+  }
+
+  function addTeamRow() {
+    if (!draft.name.trim()) return;
+    setTeam([...team, { name: draft.name.trim(), headcount: draft.headcount }]);
+    setDraft({ name: '', headcount: '' });
+  }
+
+  const planOk = checkPlan(plan).ok;
+
   async function finish() {
     if (saving || !name.trim()) return;
     setSaving(true);
-    const obj = await addObject(name.trim(), customer.trim() || undefined, {
-      customerPhone: phone.trim() || undefined,
+    const cp = counterparties.find((c) => c.id === cpId);
+    // По объёмам пустой аванс не храним; по общей сумме части остаются как есть
+    const payment: PaymentPlan = plan.basis === 'volume'
+      ? { ...plan, parts: plan.parts.filter((p) => p.amount > 0) }
+      : plan;
+    const obj = await addObject(name.trim(), cp?.name, {
+      address: address.trim() || undefined,
+      counterpartyId: cp?.id,
+      customerPhone: cp?.phone,
+      payment,
       paymentTerms: terms.trim() || undefined,
     });
     for (const p of prices) {
       if (p.on) await upsertRate(obj.id, p.workTypeId, somsToTyiyn(p.customer), somsToTyiyn(p.worker));
     }
-    const adv = somsToTyiyn(advance);
-    if (adv > 0) {
-      await addReceipt({ objectId: obj.id, date: todayStr(), amount: adv, method: 'cash', kind: 'advance' });
+    // Аванс уже на руках — сразу в кассу
+    for (const part of payment.parts) {
+      if (received.includes(part.id) && part.amount > 0) {
+        await addReceipt({ objectId: obj.id, date: todayStr(), amount: part.amount, method: 'cash', kind: 'advance', note: part.title });
+      }
     }
-    for (const n of newNames) await addWorker(n);
-    if (draftName.trim()) await addWorker(draftName.trim());
+    const rows = draft.name.trim() ? [...team, draft] : team;
+    for (const r of rows) {
+      const head = Math.round(parseDecimal(r.headcount));
+      await addWorker(r.name.trim(), undefined, undefined, head > 0 ? head : undefined);
+    }
     await updateSettings({ activeObjectId: obj.id });
     // Снимаем все шаги мастера со стека; если мастер был первой страницей — на «Сегодня»
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
@@ -90,7 +127,7 @@ export function NewObjectWizard() {
     else navigate('/', { replace: true });
   }
 
-  const titles = [t('newObject.step1'), t('newObject.step2'), t('newObject.step3')];
+  const titles = [t('newObject.step1'), t('newObject.step2'), t('newObject.step3'), t('newObject.step4')];
   const strip = (
     <div className="flex gap-1">
       {STEPS.map((s, i) => (
@@ -112,16 +149,9 @@ export function NewObjectWizard() {
           <>
             <p className="text-[16px] leading-relaxed text-slate-600">{t('newObject.intro1')}</p>
             <TextField label={t('newObject.name')} value={name} onChange={setName} autoFocus testId="obj-name" placeholder={t('newObject.namePlaceholder')} />
-            <TextField label={t('newObject.customer')} value={customer} onChange={setCustomer} testId="obj-customer" placeholder={t('newObject.customerPlaceholder')} />
-            <TextField label={t('newObject.phone')} value={phone} onChange={setPhone} inputMode="tel" placeholder={t('common.optional')} />
-            <TextField label={t('newObject.terms')} value={terms} onChange={setTerms} placeholder={t('newObject.termsPlaceholder')} />
-            <button
-              className="flex min-h-[60px] items-center justify-between rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-left"
-              onClick={() => setSheet({ title: t('newObject.advance'), initial: advance, save: setAdvance })}
-            >
-              <span><span className="block text-[12px] font-semibold text-slate-500">{t('newObject.advance')}</span><span className="text-[18px] font-semibold">{somsToTyiyn(advance) > 0 ? formatMoney(somsToTyiyn(advance)) : t('newObject.noAdvance')}</span></span>
-            </button>
-            <div className="mt-auto">
+            <TextField label={t('newObject.address')} value={address} onChange={setAddress} testId="obj-address" placeholder={t('common.optional')} />
+            <CounterpartyPicker label={t('cp.label')} value={cpId} onChange={(c) => setCpId(c?.id)} />
+            <div className="mt-auto pt-2">
               <BigButton label={t('newObject.next2')} disabled={!name.trim()} onClick={() => goStep(1)} testId="obj-next-1" />
             </div>
           </>
@@ -130,65 +160,132 @@ export function NewObjectWizard() {
         {step === 1 && (
           <>
             <p className="text-[15px] leading-relaxed text-slate-600">{t('newObject.intro2')}</p>
-            <div className="flex flex-col gap-2">
-              {prices.map((p) => {
-                const wt = workTypes.find((w) => w.id === p.workTypeId);
-                if (!wt) return null;
-                return (
-                  <div key={p.workTypeId} className={`flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-2.5 shadow-card ${p.on ? '' : 'opacity-60'}`}>
-                    <button
-                      aria-label={wtLabel(wt, lang)}
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${p.on ? 'border-ink bg-ink text-white' : 'border-slate-300'}`}
-                      onClick={() => setPrices(prices.map((x) => (x.workTypeId === p.workTypeId ? { ...x, on: !x.on } : x)))}
-                    >
-                      {p.on && <Check size={18} strokeWidth={3} aria-hidden="true" />}
-                    </button>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[16px] font-semibold">{wtLabel(wt, lang)} · {wt.unit}</span>
-                      <span className="block text-[12px] font-medium text-slate-500">{t('newObject.margin', { sum: formatMoney(Math.max(0, somsToTyiyn(p.customer) - somsToTyiyn(p.worker))) })}</span>
-                    </span>
-                    <button className="rounded-lg bg-paper px-2 py-1 text-[16px] font-extrabold text-money-in" onClick={() => setSheet({ title: `${wtLabel(wt, lang)} — ${t('wizard.customerPrice')}`, initial: p.customer, save: (v) => setPrices((ps) => ps.map((x) => (x.workTypeId === p.workTypeId ? { ...x, customer: v, on: true } : x))) })}>
-                      {p.customer || '0'}
-                    </button>
-                    <span className="text-slate-300">/</span>
-                    <button className="rounded-lg bg-paper px-2 py-1 text-[16px] font-extrabold text-money-out" onClick={() => setSheet({ title: `${wtLabel(wt, lang)} — ${t('wizard.workerPrice')}`, initial: p.worker, save: (v) => setPrices((ps) => ps.map((x) => (x.workTypeId === p.workTypeId ? { ...x, worker: v, on: true } : x))) })}>
-                      {p.worker || '0'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="sticky bottom-0 mt-auto bg-paper pt-3">
-              <BigButton label={t('newObject.next3')} onClick={() => goStep(2)} testId="obj-next-2" />
+            <PaymentPlanEditor plan={plan} onChange={setPlan} received={received} onReceived={setReceived} />
+            <TextField label={t('pay.notes')} value={terms} onChange={setTerms} placeholder={t('pay.notesPlaceholder')} testId="obj-terms" />
+            <div className="mt-auto flex flex-col gap-1 pt-2">
+              <BigButton label={t('newObject.next3')} disabled={!planOk} onClick={() => goStep(2)} testId="obj-next-2" />
+              <button
+                className="min-h-[44px] text-[15px] font-semibold text-slate-500"
+                onClick={() => { setPlan(EMPTY_PLAN); setReceived([]); goStep(2); }}
+                data-testid="pay-later"
+              >
+                {t('pay.later')}
+              </button>
             </div>
           </>
         )}
 
         {step === 2 && (
           <>
-            <p className="text-[15px] leading-relaxed text-slate-600">{t('newObject.intro3')}</p>
+            <p className="text-[15px] leading-relaxed text-slate-600">
+              {plan.basis === 'fixed' ? t('newObject.intro3fixed') : t('newObject.intro3')}
+            </p>
+            <div className="sticky top-0 z-10 -mx-4 flex items-center gap-2 bg-paper px-4 py-1.5 text-[12px] font-extrabold uppercase tracking-wide text-slate-500">
+              <span className="flex-1">{t('newObject.priceWork')}</span>
+              <span className="w-[72px] text-right text-money-in">{t('newObject.priceCustomer')}</span>
+              <span className="w-[72px] text-right text-money-out">{t('newObject.priceTeam')}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {prices.map((p) => {
+                const wt = workTypes.find((w) => w.id === p.workTypeId);
+                if (!wt) return null;
+                const label = wtLabel(wt, lang);
+                return (
+                  <div key={p.workTypeId} className={`flex items-center gap-2 rounded-[16px] bg-white px-3 py-2.5 shadow-card ${p.on ? '' : 'opacity-60'}`}>
+                    <button
+                      type="button"
+                      aria-label={label}
+                      aria-pressed={p.on}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${p.on ? 'border-ink bg-ink text-white' : 'border-slate-300'}`}
+                      onClick={() => setPrice(p.workTypeId, { on: !p.on })}
+                      data-testid={`price-on-${wt.nameRu}`}
+                    >
+                      {p.on && <Check size={18} strokeWidth={3} aria-hidden="true" />}
+                    </button>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[16px] font-semibold">{label}</span>
+                      <span className="block truncate text-[12px] font-medium text-slate-500">
+                        {t('newObject.marginShort', { unit: wt.unit, sum: formatMoney(Math.max(0, somsToTyiyn(p.customer) - somsToTyiyn(p.worker))) })}
+                      </span>
+                    </span>
+                    <NumField
+                      variant="cell"
+                      tone="in"
+                      label={`${label} — ${t('wizard.customerPrice')}`}
+                      value={p.customer}
+                      onChange={(v) => setPrice(p.workTypeId, { customer: v, on: true })}
+                      className="w-[72px]"
+                      testId={`price-c-${wt.nameRu}`}
+                    />
+                    <NumField
+                      variant="cell"
+                      tone="out"
+                      label={`${label} — ${t('wizard.workerPrice')}`}
+                      value={p.worker}
+                      onChange={(v) => setPrice(p.workTypeId, { worker: v, on: true })}
+                      className="w-[72px]"
+                      testId={`price-w-${wt.nameRu}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="sticky bottom-0 mt-auto bg-paper pt-3">
+              <BigButton label={t('newObject.next4')} onClick={() => goStep(3)} testId="obj-next-3" />
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <p className="text-[15px] leading-relaxed text-slate-600">{t('newObject.intro4')}</p>
             <div className="flex flex-col gap-2">
               {workers.filter((w) => !w.archivedAt).map((w) => (
                 <div key={w.id} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-2.5 shadow-card">
                   <WorkerCircle worker={w} size={40} />
-                  <span className="text-[16px] font-semibold">{w.name}</span>
-                  {w.specialty && <span className="text-[13px] text-slate-500">{w.specialty}</span>}
+                  <span className="flex-1 text-[16px] font-semibold">{w.name}</span>
+                  {w.headcount ? <span className="text-[13px] font-semibold text-slate-500">{t('workers.headcountShort', { n: w.headcount })}</span> : null}
                 </div>
               ))}
-              {newNames.map((n, i) => (
+              {team.map((r, i) => (
                 <div key={i} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-2.5 shadow-card">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-dark text-[15px] font-bold text-white">{n[0]?.toUpperCase()}</span>
-                  <span className="text-[16px] font-semibold">{n}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-dark text-[15px] font-bold text-white">{r.name[0]?.toUpperCase()}</span>
+                  <span className="flex-1 text-[16px] font-semibold">{r.name}</span>
+                  {r.headcount && <span className="text-[13px] font-semibold text-slate-500">{t('workers.headcountShort', { n: Math.round(parseDecimal(r.headcount)) })}</span>}
+                  <button type="button" aria-label={t('common.delete')} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400" onClick={() => setTeam(team.filter((_, j) => j !== i))}>
+                    <X size={18} aria-hidden="true" />
+                  </button>
                 </div>
               ))}
-              <TextField label={t('workers.name')} value={draftName} onChange={setDraftName} testId="team-name" placeholder={t('newObject.namePlaceholderWorker')} />
+              <div className="flex items-stretch gap-2">
+                <TextField
+                  className="min-w-0 flex-1"
+                  label={t('workers.name')}
+                  value={draft.name}
+                  onChange={(v) => setDraft({ ...draft, name: v })}
+                  testId="team-name"
+                  placeholder={t('newObject.namePlaceholderWorker')}
+                />
+                <NumField
+                  className="w-[112px] shrink-0"
+                  label={t('newObject.people')}
+                  keypadLabel={t('workers.headcount')}
+                  value={draft.headcount}
+                  onChange={(v) => setDraft((d) => ({ ...d, headcount: v }))}
+                  decimals={0}
+                  maxDigits={3}
+                  suffix={t('newObject.peopleShort')}
+                  placeholder="—"
+                  testId="team-headcount"
+                />
+              </div>
             </div>
             <BigButton
               label={t('newObject.oneMore')}
               tone="neutral"
               icon={<Plus size={20} aria-hidden="true" />}
-              disabled={!draftName.trim()}
-              onClick={() => { setNewNames([...newNames, draftName.trim()]); setDraftName(''); }}
+              disabled={!draft.name.trim()}
+              onClick={addTeamRow}
               testId="team-add"
             />
             <div className="mt-auto flex flex-col gap-2">
@@ -198,8 +295,6 @@ export function NewObjectWizard() {
           </>
         )}
       </div>
-
-      {sheet && <NumSheet title={sheet.title} initial={sheet.initial} onSave={sheet.save} onClose={() => setSheet(null)} />}
     </div>
   );
 }

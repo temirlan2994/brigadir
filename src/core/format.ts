@@ -51,3 +51,40 @@ export function tyiynToSomsInput(tyiyn: Money): string {
   const soms = tyiyn / 100;
   return Number.isInteger(soms) ? String(soms) : String(soms).replace('.', ',');
 }
+
+export interface KeyOptions {
+  decimals?: number; // знаков после запятой; 0 — только целые
+  maxDigits?: number;
+  fresh?: boolean; // значение выделено: первая клавиша заменяет его целиком
+}
+
+// Строка поля после нажатия клавиши нампада: цифра, «,» или «erase»
+export function applyKey(value: string, key: string, opts: KeyOptions = {}): string {
+  const decimals = opts.decimals ?? 2;
+  const maxDigits = opts.maxDigits ?? 10;
+  const base = opts.fresh ? '' : value;
+  if (key === 'erase') return base.slice(0, -1);
+  if (key === ',') {
+    if (decimals === 0 || base.includes(',')) return base;
+    return base === '' ? '0,' : `${base},`;
+  }
+  if (base === '0') return key;
+  const frac = base.split(',')[1];
+  if (frac !== undefined && frac.length >= decimals) return base;
+  if (base.replace(',', '').length >= maxDigits) return base;
+  return base + key;
+}
+
+// Строка поля с разрядами для показа: "1234567,5" → "1 234 567,5"
+export function groupInput(raw: string): string {
+  if (raw === '') return '';
+  const [int, frac] = raw.split(',');
+  const grouped = groupDigits(Number(int));
+  return frac !== undefined ? `${grouped},${frac}` : grouped;
+}
+
+// Процент для показа: 33.3 → "33,3"
+export function formatPercent(p: number): string {
+  const rounded = Math.round(p * 10) / 10;
+  return String(rounded).replace('.', ',');
+}
