@@ -21,6 +21,13 @@ export function amountsFromPercents(total: Money, percents: number[]): Money[] {
   return percents.map((p) => Math.round((total / unit) * p / 100) * unit);
 }
 
+// Доли частей из сумм — точные, без округления: обратный пересчёт в суммы
+// возвращает те же деньги до тыйына (на экране доля округляется до десятых)
+export function percentsFromAmounts(parts: PlanPart[], total: Money): PlanPart[] {
+  if (!total) return parts.map((p) => ({ ...p, percent: undefined }));
+  return parts.map((p) => ({ ...p, percent: (p.amount / total) * 100 }));
+}
+
 // Пересчёт сумм частей после правки процентов или общей суммы
 export function withPercentAmounts(plan: PaymentPlan): PaymentPlan {
   if (plan.splitBy !== 'percent' || !plan.total) return plan;

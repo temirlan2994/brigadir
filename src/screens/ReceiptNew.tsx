@@ -20,8 +20,10 @@ export function ReceiptNew() {
   const toast = useToast();
   const [params] = useSearchParams();
   const activeObject = useActiveObject();
-  const paramObject = useObject(params.get('objectId') ?? undefined);
-  const object = paramObject ?? activeObject;
+  const objectIdParam = params.get('objectId');
+  const paramObject = useObject(objectIdParam ?? undefined);
+  // Пришли из конкретного объекта — ждём именно его, а не подставляем текущий
+  const object = objectIdParam ? paramObject : activeObject;
   const s = useObjectSummary(object?.id);
 
   const [amount, setAmount] = useState('');
@@ -45,10 +47,10 @@ export function ReceiptNew() {
     if (!note.trim()) setNote(suggestion.part.title);
   }
 
-  // Пришли из графика по конкретной части — сразу её сумма
+  // Пришли из графика по конкретной части — сразу её сумма (только когда нашлась именно она)
   const applied = useRef(false);
   useEffect(() => {
-    if (applied.current || !partId || !suggestion) return;
+    if (applied.current || !partId || !suggestion || suggestion.part.id !== partId) return;
     applied.current = true;
     applySuggestion();
     // eslint-disable-next-line react-hooks/exhaustive-deps

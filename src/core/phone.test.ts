@@ -1,9 +1,72 @@
 // Тесты телефонов: разбор, формат, код страны.
 import { describe, it, expect } from 'vitest';
 import {
-  COUNTRIES, countryByCode, digitsOnly, formatNational, formatPhone, isComplete,
-  maxDigits, parsePhone, phoneDigits, toE164,
+  COUNTRIES, countryByCode, digitsOnly, formatNational, formatPhone, guessCustomerKind, isComplete,
+  maxDigits, normalizePhone, parsePhone, phoneDigits, toE164, typedNational,
 } from './phone';
+
+describe('чужой код страны не подменяется своим', () => {
+  it('+48 — не из списка: known=false, все цифры как есть', () => {
+    const p = parsePhone('+48 512 345 678');
+    expect(p.known).toBe(false);
+    expect(p.national).toBe('48512345678');
+    expect(phoneDigits('+48 512 345 678')).toBe('48512345678');
+    expect(formatPhone('+48 512 345 678')).toBe('+48 512 345 678');
+    expect(normalizePhone('+48 512 345 678')).toBe('+48512345678');
+  });
+
+  it('свои коды — known=true', () => {
+    expect(parsePhone('+996555123456').known).toBe(true);
+    expect(parsePhone('0555123456').known).toBe(true);
+    expect(parsePhone('+').known).toBe(false);
+  });
+
+  it('несколько номеров через запятую — берётся первый', () => {
+    expect(parsePhone('0555123456, 0700123456').national).toBe('555123456');
+    expect(parsePhone('0555 12 34 56 / 0700 12 34 56').national).toBe('555123456');
+  });
+});
+
+describe('typedNational — номер набирают по цифре', () => {
+  const KG2 = countryByCode('KG');
+  const KZ2 = countryByCode('KZ');
+  it('ведущий 0 — местный префикс, отбрасывается', () => {
+    expect(typedNational('0555123456', KG2)).toBe('555123456');
+    expect(typedNational('0', KG2)).toBe('');
+  });
+
+  it('повтор кода страны «996…» убирается, когда цифр больше, чем в номере', () => {
+    expect(typedNational('99655512', KG2)).toBe('99655512');
+    expect(typedNational('9965551234', KG2)).toBe('5551234');
+  });
+
+  it('«8» России и Казахстана перед 10 цифрами убирается', () => {
+    expect(typedNational('87011234567', KZ2)).toBe('7011234567');
+    expect(typedNational('8701123456', KZ2)).toBe('8701123456');
+  });
+
+  it('лишние цифры без кода отрезаются', () => {
+    expect(typedNational('5551234567', KG2)).toBe('555123456');
+  });
+});
+
+describe('normalizePhone и вид заказчика', () => {
+  it('старые записи — к виду +996…, короткий мусор — как был', () => {
+    expect(normalizePhone('+996 555 123 456')).toBe('+996555123456');
+    expect(normalizePhone('0700 11 22 33')).toBe('+996700112233');
+    expect(normalizePhone(' 12-34 ')).toBe('12-34');
+    expect(normalizePhone('+')).toBe('+');
+  });
+
+  it('компания или человек по названию', () => {
+    expect(guessCustomerKind('ОсОО Курулуш')).toBe('company');
+    expect(guessCustomerKind('ИП Асанов')).toBe('company');
+    expect(guessCustomerKind('СтройКом')).toBe('company');
+    expect(guessCustomerKind('«Ала-Тоо»')).toBe('company');
+    expect(guessCustomerKind('Асан Акматов')).toBe('person');
+    expect(guessCustomerKind('Комил')).toBe('person');
+  });
+});
 
 const KG = countryByCode('KG');
 const KZ = countryByCode('KZ');

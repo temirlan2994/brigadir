@@ -88,7 +88,8 @@ export function useObjectSummary(objectId: string | undefined) {
   const contractTotal = fixed ? revenueBase(plan, done) : 0;
   const dueSum = fixed ? dueTotal(plan.parts, today) : 0;
   const notAccepted = fixed ? contractTotal - dueSum : done - accepted;
-  const statuses = plan ? planStatus(plan.parts, received, today) : [];
+  // Части графика закрывают и деньги, и удержания: удержанное заказчик платить уже не будет
+  const statuses = plan ? planStatus(plan.parts, received + withheld, today) : [];
   const next = nextPart(statuses);
   const workersSum = workersTotalSum(active);
   const contractorExp = contractorExpensesTotal(objExpenses);

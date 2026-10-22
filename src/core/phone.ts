@@ -65,11 +65,15 @@ function countryForDial(dial: string, national: string): Country {
 export interface ParsedPhone {
   country: Country;
   national: string; // только цифры, без кода страны
+  // false — международный номер с кодом не из списка: national тогда все цифры вместе с кодом
+  known: boolean;
 }
 
 // Разбор того, что вставили или взяли из контактов: «+7 701…», «0555 12 34 56», «996555…»
 export function parsePhone(raw: string | undefined, fallback: Country = DEFAULT_COUNTRY): ParsedPhone {
-  const text = (raw ?? '').trim();
+  // Несколько номеров через запятую или «/» — берём первый
+  const source = raw ?? '';
+  const text = (source.split(/[,;/]/).find((part) => /\d/.test(part)) ?? source).trim();
   const digits = digitsOnly(text);
   const international = text.startsWith('+') || text.startsWith('00');
   const all = international && text.startsWith('00') ? digits.slice(2) : digits;
@@ -82,20 +86,34 @@ export function parsePhone(raw: string | undefined, fallback: Country = DEFAULT_
       const country = countryForDial(dial, national);
       // «+996 0555…»: лишний местный ноль после кода
       if (national.length === maxDigits(country) + 1 && national[0] === '0') national = national.slice(1);
-      return { country, national: national.slice(0, maxDigits(country)) };
+      return { country, national: national.slice(0, maxDigits(country)), known: true };
     }
     // «8 701 123 45 67»: старая запись номеров России и Казахстана
     if (all.length === 11 && all[0] === '8') {
       const national = all.slice(1);
-      return { country: countryForDial('7', national), national };
+      return { country: countryForDial('7', national), national, known: true };
     }
+    // Чужой код (+48…) не подменяем своим: номер остаётся как набран
+    if (international) return { country: fallback, national: all, known: false };
   }
   // Местная запись с ведущим 0 (0555…) или 8 (8 701…)
   let national = all;
   if (national.length === maxDigits(fallback) + 1 && (national[0] === '0' || national[0] === '8')) {
     national = national.slice(1);
   }
-  return { country: fallback, national: national.slice(0, maxDigits(fallback)) };
+  return { country: fallback, national: national.slice(0, maxDigits(fallback)), known: true };
+}
+
+// Номер набирают по цифре после кода: ведущий 0 — местный префикс, его отбрасываем;
+// лишние цифры — это повтор кода страны («996…») или «8» России и Казахстана
+export function typedNational(digits: string, country: Country): string {
+  let d = digits.replace(/^0+/, '');
+  const max = maxDigits(country);
+  if (d.length > max) {
+    if (d.startsWith(country.dial)) d = d.slice(country.dial.length);
+    else if (country.dial === '7' && d[0] === '8') d = d.slice(1);
+  }
+  return d.slice(0, max);
 }
 
 export function toE164(country: Country, national: string): string {
@@ -106,17 +124,32 @@ export function isComplete(country: Country, national: string): boolean {
   return national.length >= (country.min ?? maxDigits(country));
 }
 
-// Для показа: +996 555 123 456
+// Для показа: +996 555 123 456; номер с чужим кодом — как записан
 export function formatPhone(phone: string | undefined): string {
   if (!phone) return '';
-  const { country, national } = parsePhone(phone);
-  if (!national) return phone;
+  const { country, national, known } = parsePhone(phone);
+  if (!national || !known) return phone.trim();
   return `+${country.dial} ${formatNational(national, country)}`;
 }
 
 // Номер для ссылки wa.me и tel: только цифры с кодом страны
 export function phoneDigits(phone: string | undefined): string {
   if (!phone) return '';
-  const { country, national } = parsePhone(phone);
+  const { country, national, known } = parsePhone(phone);
+  if (!known) return national;
   return national ? `${country.dial}${national}` : '';
+}
+
+// Заказчик из старой версии: ОсОО, ИП, кавычки, «Строй…» — компания, иначе — человек
+export function guessCustomerKind(name: string): 'company' | 'person' {
+  const companyWord = /(^|[\s«"'])(осоо|ооо|оао|зао|ао|ип|тоо|ltd|llc|inc)([\s»"'.,]|$)/i;
+  const companyHint = /[«"]|строй|групп|компан|холдинг|сервис|трейд/i;
+  return companyWord.test(name) || companyHint.test(name) ? 'company' : 'person';
+}
+
+// Телефон, записанный когда-то текстом, — в вид +996555123456; непонятный — как был
+export function normalizePhone(raw: string): string {
+  const { country, national, known } = parsePhone(raw);
+  if (!known) return national ? `+${national}` : raw.trim();
+  return national.length >= 6 ? toE164(country, national) : raw.trim();
 }

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   amountsFromPercents, checkPlan, customerOwesByPlan, dueTotal, isFixed, nextPart,
-  objectStageByPlan, partDue, partsSum, percentsSum, planStatus, revenueBase,
+  objectStageByPlan, partDue, partsSum, percentsFromAmounts, percentsSum, planStatus, revenueBase,
   stagesHanded, withPercentAmounts,
 } from './plan';
 import type { PaymentPlan, PlanPart, Receipt, WorkEntry, CustomerAdjustment } from '../db/types';
@@ -53,6 +53,26 @@ describe('amountsFromPercents', () => {
   it('проценты не до 100 — каждая часть отдельно', () => {
     expect(amountsFromPercents(som(1_000_000), [30, 40])).toEqual([som(300_000), som(400_000)]);
     expect(amountsFromPercents(1_001, [10])).toEqual([100]);
+  });
+});
+
+describe('percentsFromAmounts', () => {
+  it('суммы → доли → суммы: деньги те же до тыйына', () => {
+    const parts = [part({ amount: som(123_456) }), part({ amount: som(876_544) })];
+    const withPct = percentsFromAmounts(parts, som(1_000_000));
+    const back = withPercentAmounts(fixed(withPct, som(1_000_000)));
+    expect(back.parts.map((p) => p.amount)).toEqual([som(123_456), som(876_544)]);
+    expect(percentsSum(back.parts)).toBe(100);
+  });
+
+  it('распределено не всё — каждая часть отдельно, тоже без потерь', () => {
+    const parts = [part({ amount: som(100_001) })];
+    const back = withPercentAmounts(fixed(percentsFromAmounts(parts, som(1_000_000)), som(1_000_000)));
+    expect(back.parts[0].amount).toBe(som(100_001));
+  });
+
+  it('без суммы договора доли не считаются', () => {
+    expect(percentsFromAmounts([part({ amount: 5, percent: 10 })], 0)[0].percent).toBeUndefined();
   });
 });
 

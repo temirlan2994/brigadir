@@ -508,5 +508,15 @@
   "close.stagesLeft": "{sum} суммасындагы этаптар азырынча тапшырыла элек",
   "handover.partialHint": "Канча кабыл алышканын жазып, «Даяр» бас. Калганы «Кабыл алына элек» бөлүмүндө калат.",
   "workers.specialtyPlaceholder": "ширетүүчүлөр, кыш калоочулар…",
-  "newObject.marginShort": "{unit} · сеники {sum}"
+  "newObject.marginShort": "{unit} · сеники {sum}",
+  "plan.receivedWithheldOf": "алынды {got} · кармалды {w} · калды {left}",
+  "contract.confirmBasis": "Буюртмачынын төлөө ыкмасын алмаштырасызбы? Буюртмачынын карызы башкача эсептелет.",
+  "contract.notSaved": "Төлөм сакталган жок: бөлүктөр келишимдин суммасына туура келиши керек. Азыр мурункусу боюнча эсептелет.",
+  "report.contract": "Келишим: {sum}",
+  "report.stages": "Этаптар:",
+  "report.stage.paid": "төлөндү",
+  "report.stage.partial": "{sum} ичинен {paid} төлөндү",
+  "report.stage.due": "төлөөгө",
+  "report.stage.waiting": "иште",
+  "report.done": "Мезгил ичинде жасалды:"
 }

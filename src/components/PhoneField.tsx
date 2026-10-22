@@ -3,7 +3,7 @@ import { ChevronDown, Contact, Search } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
 import {
   COUNTRIES, digitsOnly, formatNational, formatPhone, isComplete, maxDigits, parsePhone, toE164,
-  type Country,
+  typedNational, type Country,
 } from '../core/phone';
 import { contactsSupported, pickContact, type PickedContact } from '../lib/contacts';
 import { Flag } from './Flag';
@@ -12,7 +12,7 @@ import { Sheet } from './Sheet';
 // Номер без кода из сохранённого +996…: для выбранной страны — без повторного угадывания
 function nationalOf(value: string, country: Country): string {
   const prefix = `+${country.dial}`;
-  return value.startsWith(prefix) ? value.slice(prefix.length) : parsePhone(value, country).national;
+  return value.startsWith(prefix) ? digitsOnly(value.slice(prefix.length)) : parsePhone(value, country).national;
 }
 
 // Позиция в отформатированном номере сразу после n-й цифры
@@ -52,8 +52,10 @@ export function PhoneField({ label, value, onChange, onContact, testId }: {
     emitted.current = value;
   }, [value]);
 
-  const national = nationalOf(value, country);
-  const formatted = formatNational(national, country);
+  // Номер с кодом не из списка (+48…) показываем и храним как набран
+  const free = value !== '' && !parsePhone(value).known;
+  const national = free ? '' : nationalOf(value, country);
+  const formatted = free ? value : formatNational(national, country);
 
   useLayoutEffect(() => {
     if (caretDigits.current === null || !inputRef.current) return;
@@ -62,19 +64,32 @@ export function PhoneField({ label, value, onChange, onContact, testId }: {
     caretDigits.current = null;
   }, [formatted]);
 
-  function emit(c: Country, digits: string) {
-    const next = toE164(c, digits.slice(0, maxDigits(c)));
+  function send(next: string) {
     emitted.current = next;
     onChange(next);
   }
 
+  function emit(c: Country, digits: string) {
+    send(toE164(c, digits.slice(0, maxDigits(c))));
+  }
+
+  // Разобранный номер: страна из списка — по коду, чужая — как набрали, «+» и цифры
+  function emitParsed(raw: string) {
+    const parsed = parsePhone(raw, country);
+    if (!parsed.known) {
+      send(`+${parsed.national}`);
+      return;
+    }
+    setCountry(parsed.country);
+    emit(parsed.country, parsed.national);
+  }
+
   function onInput(raw: string, caret: number | null) {
     const digits = digitsOnly(raw);
-    // Вставили номер целиком (с кодом, с 0 впереди) — разбираем и угадываем страну
-    if (raw.includes('+') || digits.length - national.length > 1) {
-      const parsed = parsePhone(raw, country);
-      setCountry(parsed.country);
-      emit(parsed.country, parsed.national);
+    // Набирают с «+» или вставили номер целиком (с кодом, с 0 впереди) — разбираем
+    if (raw.trim().startsWith('+') || free || digits.length - national.length > 1) {
+      if (!digits && !raw.trim().startsWith('+')) send('');
+      else emitParsed(raw);
       return;
     }
     const before = digitsOnly(raw.slice(0, caret ?? raw.length)).length;
@@ -85,7 +100,7 @@ export function PhoneField({ label, value, onChange, onContact, testId }: {
       return;
     }
     caretDigits.current = before;
-    emit(country, digits);
+    emit(country, typedNational(digits, country));
   }
 
   function chooseCountry(c: Country) {
@@ -97,9 +112,7 @@ export function PhoneField({ label, value, onChange, onContact, testId }: {
   }
 
   function applyNumber(contact: PickedContact, tel: string) {
-    const parsed = parsePhone(tel, country);
-    setCountry(parsed.country);
-    emit(parsed.country, parsed.national);
+    emitParsed(tel);
     onContact?.({ ...contact, tels: [tel] });
     setChoices(null);
   }
@@ -133,8 +146,7 @@ export function PhoneField({ label, value, onChange, onContact, testId }: {
             aria-label={`${t('phone.country')}: ${lang === 'ky' ? country.ky : country.ru}`}
             data-testid={testId ? `${testId}-country` : undefined}
           >
-            <Flag code={country.code} />
-            +{country.dial}
+            {free ? <span className="px-1">+…</span> : <><Flag code={country.code} />+{country.dial}</>}
             <ChevronDown size={16} className="text-slate-400" aria-hidden="true" />
           </button>
           <input

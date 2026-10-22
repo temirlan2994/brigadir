@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useT, useLangStore } from '../i18n';
 import { db } from '../db/db';
 import { useObject, useWorkTypes } from '../lib/hooks';
-import { upsertRate } from '../db/repo';
+import { upsertRatePart } from '../db/repo';
 import { somsToTyiyn, tyiynToSomsInput } from '../core/format';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { NumField } from '../components/NumField';
@@ -44,13 +44,20 @@ export function ObjectPrices() {
   const { id = '' } = useParams();
   const o = useObject(id);
   const workTypes = useWorkTypes();
-  const rates = useLiveQuery(() => db.rates.where('objectId').equals(id).toArray(), [id]) ?? [];
+  const ratesRaw = useLiveQuery(() => db.rates.where('objectId').equals(id).toArray(), [id]);
+  const rates = ratesRaw ?? [];
+  // Разделы считаем один раз при открытии: строка, которой только что дали цену,
+  // не прыгает в другой список посреди ввода
+  const [pricedAtOpen, setPricedAtOpen] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (ratesRaw && !pricedAtOpen) setPricedAtOpen(new Set(ratesRaw.map((r) => r.workTypeId)));
+  }, [ratesRaw, pricedAtOpen]);
 
-  if (!o) return <ScreenHeader title="" />;
+  if (!o || !pricedAtOpen) return <ScreenHeader title="" />;
 
   const rateOf = (workTypeId: string) => rates.find((r) => r.workTypeId === workTypeId);
-  const withRate = workTypes.filter((w) => !w.archivedAt && rateOf(w.id));
-  const withoutRate = workTypes.filter((w) => !w.archivedAt && !rateOf(w.id));
+  const withRate = workTypes.filter((w) => !w.archivedAt && pricedAtOpen.has(w.id));
+  const withoutRate = workTypes.filter((w) => !w.archivedAt && !pricedAtOpen.has(w.id));
 
   const rateRow = (w: WorkType) => {
     const r: Rate | undefined = rateOf(w.id);
@@ -62,14 +69,14 @@ export function ObjectPrices() {
           label={`${label} — ${t('wizard.customerPrice')}`}
           stored={r?.customerPrice}
           tone="in"
-          onSave={(v) => void upsertRate(id, w.id, v, r?.workerPrice ?? 0)}
+          onSave={(v) => void upsertRatePart(id, w.id, { customerPrice: v })}
           testId={`rate-c-${w.nameRu}`}
         />
         <PriceCell
           label={`${label} — ${t('wizard.workerPrice')}`}
           stored={r?.workerPrice}
           tone="out"
-          onSave={(v) => void upsertRate(id, w.id, r?.customerPrice ?? 0, v)}
+          onSave={(v) => void upsertRatePart(id, w.id, { workerPrice: v })}
           testId={`rate-w-${w.nameRu}`}
         />
       </div>

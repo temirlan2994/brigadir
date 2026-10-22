@@ -444,6 +444,7 @@ export function WorkWizard() {
           <NumPadPanel
             value={focusValue()}
             onChange={setFocusValue}
+            decimals={focus === 'customerPrice' || focus === 'workerPrice' ? 2 : 3}
             fresh={fresh}
             onFreshUsed={() => setFresh(false)}
             hint={<p className="pb-2 text-center text-[14px] font-semibold text-slate-500">{focusLabel()}</p>}

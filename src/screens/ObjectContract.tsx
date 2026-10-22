@@ -5,6 +5,7 @@ import { useT } from '../i18n';
 import { useObject, useSettings } from '../lib/hooks';
 import { nowIso, setObjectCounterparty, updateObject, updateSettings } from '../db/repo';
 import { phoneDigits } from '../core/phone';
+import { checkPlan } from '../core/plan';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
 import { CounterpartyPicker } from '../components/CounterpartyPicker';
@@ -23,7 +24,8 @@ export function ObjectContract() {
   const settings = useSettings();
   const [form, setForm] = useState<Form | null>(null);
 
-  // Через 0,7 с после правки — в базу; при уходе с экрана — сразу
+  // Через 0,7 с после правки — в базу; при уходе с экрана — сразу.
+  // Разбивку, которая не сходится с суммой договора, не сохраняем: долг считается по прежней
   const pendingRef = useRef<Form | null>(null);
   function persist(f: Form, obj: SiteObject | undefined) {
     pendingRef.current = null;
@@ -31,7 +33,7 @@ export function ObjectContract() {
       name: f.name.trim() || obj?.name,
       address: f.address.trim() || undefined,
       paymentTerms: f.terms.trim() || undefined,
-      payment: f.payment,
+      ...(checkPlan(f.payment).ok ? { payment: f.payment } : {}),
     });
   }
   const objRef = useRef(o);
@@ -75,7 +77,14 @@ export function ObjectContract() {
         )}
 
         <SectionTitle>{t('contract.payment')}</SectionTitle>
-        <PaymentPlanEditor plan={f.payment} onChange={(p) => setForm({ ...f, payment: p })} />
+        <PaymentPlanEditor
+          plan={f.payment}
+          onChange={(p) => setForm({ ...f, payment: p })}
+          confirmBasis={() => window.confirm(t('contract.confirmBasis'))}
+        />
+        {!checkPlan(f.payment).ok && (
+          <p className="px-1 text-[14px] font-semibold text-money-out" data-testid="contract-not-saved">{t('contract.notSaved')}</p>
+        )}
         <TextField label={t('pay.notes')} value={f.terms} onChange={(v) => setForm({ ...f, terms: v })} placeholder={t('pay.notesPlaceholder')} />
 
         <Card className="mt-2 flex flex-col gap-2 !p-3">

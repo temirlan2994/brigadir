@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { useT, formatDateShort, useLangStore } from '../i18n';
 import { formatMoney, formatPercent, parseDecimal, somsToTyiyn, tyiynToSomsInput } from '../core/format';
-import { checkPlan, withPercentAmounts } from '../core/plan';
+import { checkPlan, percentsFromAmounts, withPercentAmounts } from '../core/plan';
 import { uid } from '../db/repo';
 import { NumField } from './NumField';
 import { Segmented } from './Segmented';
@@ -31,25 +31,13 @@ function presetParts(t: Parameters<typeof partTitle>[0], percents: number[]): Pl
   }));
 }
 
-// Сумма процентов ровно 100 после округления до десятых: разницу забирает последняя часть
-function percentsFromAmounts(parts: PlanPart[], total: number): PlanPart[] {
-  if (!total) return parts.map((p) => ({ ...p, percent: undefined }));
-  const out = parts.map((p) => ({ ...p, percent: Math.round((p.amount / total) * 1000) / 10 }));
-  const sum = out.reduce((s, p) => s + (p.percent ?? 0), 0);
-  const fullySplit = parts.reduce((s, p) => s + p.amount, 0) === total;
-  if (out.length > 0 && fullySplit) {
-    const last = out[out.length - 1];
-    last.percent = Math.round(((last.percent ?? 0) + 100 - sum) * 10) / 10;
-  }
-  return out;
-}
-
 // Блок «Как платит заказчик»: за объёмы (с авансом) или общая сумма частями
-export function PaymentPlanEditor({ plan, onChange, received, onReceived }: {
+export function PaymentPlanEditor({ plan, onChange, received, onReceived, confirmBasis }: {
   plan: PaymentPlan;
   onChange: (plan: PaymentPlan) => void;
   received?: string[]; // в мастере: какие авансы уже на руках
   onReceived?: (ids: string[]) => void;
+  confirmBasis?: () => boolean; // у живого объекта смена способа оплаты — только с подтверждением
 }) {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
@@ -69,6 +57,7 @@ export function PaymentPlanEditor({ plan, onChange, received, onReceived }: {
 
   function switchBasis(basis: PaymentPlan['basis']) {
     if (basis === plan.basis) return;
+    if (confirmBasis && !confirmBasis()) return;
     if (basis === 'fixed') {
       const advance = plan.parts.find((p) => p.trigger === 'start');
       const parts = advance && advance.percent !== undefined
@@ -76,12 +65,8 @@ export function PaymentPlanEditor({ plan, onChange, received, onReceived }: {
         : presetParts(t, [30, 70]);
       update({ ...plan, basis, splitBy: 'percent', parts });
     } else {
-      const advance = plan.parts.find((p) => p.trigger === 'start');
-      update({
-        ...plan, basis,
-        splitBy: advance?.percent !== undefined ? 'percent' : 'amount',
-        parts: advance ? [{ ...advance, title: t('pay.defaultAdvance') }] : [],
-      });
+      // Части общей суммы к объёмам не подходят — аванс, если нужен, задают заново
+      update({ ...plan, basis, splitBy: 'amount', parts: [] });
     }
   }
 

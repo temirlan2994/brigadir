@@ -107,9 +107,10 @@ export function NewObjectWizard() {
     for (const p of prices) {
       if (p.on) await upsertRate(obj.id, p.workTypeId, somsToTyiyn(p.customer), somsToTyiyn(p.worker));
     }
-    // Аванс уже на руках — сразу в кассу
+    // Аванс уже на руках — сразу в кассу. Галочка считается только у части «сразу»:
+    // если часть потом переключили на «после этапа», её деньги ещё не получены
     for (const part of payment.parts) {
-      if (received.includes(part.id) && part.amount > 0) {
+      if (received.includes(part.id) && part.trigger === 'start' && part.amount > 0) {
         await addReceipt({ objectId: obj.id, date: todayStr(), amount: part.amount, method: 'cash', kind: 'advance', note: part.title });
       }
     }

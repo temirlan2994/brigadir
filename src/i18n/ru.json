@@ -508,5 +508,15 @@
   "close.stagesLeft": "ещё не сдано этапов на {sum}",
   "handover.partialHint": "Впиши, сколько приняли, и нажми «Готово». Остаток останется в «Не принято».",
   "workers.specialtyPlaceholder": "сварщики, каменщики…",
-  "newObject.marginShort": "{unit} · твои {sum}"
+  "newObject.marginShort": "{unit} · твои {sum}",
+  "plan.receivedWithheldOf": "получено {got} · удержано {w} · осталось {left}",
+  "contract.confirmBasis": "Сменить, как платит заказчик? Долг заказчика будет считаться по-другому.",
+  "contract.notSaved": "Оплата не сохранена: части должны сойтись с суммой договора. Сейчас считается по прежней.",
+  "report.contract": "Договор: {sum}",
+  "report.stages": "Этапы:",
+  "report.stage.paid": "оплачено",
+  "report.stage.partial": "оплачено {paid} из {sum}",
+  "report.stage.due": "к оплате",
+  "report.stage.waiting": "в работе",
+  "report.done": "Сделано за период:"
 }

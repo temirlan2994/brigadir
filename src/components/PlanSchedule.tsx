@@ -20,10 +20,11 @@ export async function markStage(object: SiteObject, partId: string, done: boolea
 }
 
 // График оплаты: части договора по порядку, что получено, что к оплате, что ждёт этапа
-export function PlanSchedule({ object, statuses, received, done, readOnly }: {
+export function PlanSchedule({ object, statuses, received, withheld = 0, done, readOnly }: {
   object: SiteObject;
   statuses: PartStatus[];
   received: number;
+  withheld?: number; // удержания и штрафы тоже закрывают части графика
   done: number; // сделано по ценам — для сметы
   readOnly?: boolean;
 }) {
@@ -35,7 +36,8 @@ export function PlanSchedule({ object, statuses, received, done, readOnly }: {
   if (!plan) return null;
   const fixed = isFixed(plan);
   const total = plan.total ?? 0;
-  const progress = total > 0 ? Math.min(100, Math.round(((fixed ? received : done) / total) * 100)) : 0;
+  const progress = total > 0 ? Math.min(100, Math.round(((fixed ? received + withheld : done) / total) * 100)) : 0;
+  const left = Math.max(0, total - received - withheld);
   const open = !object.closedAt && !object.archivedAt && !readOnly;
 
   async function toggle(s: PartStatus) {
@@ -68,7 +70,9 @@ export function PlanSchedule({ object, statuses, received, done, readOnly }: {
             </span>
             <span className="mt-1 block text-[13px] font-medium text-slate-500">
               {fixed
-                ? t('plan.receivedOf', { got: formatMoney(received), left: formatMoney(Math.max(0, total - received)) })
+                ? (withheld > 0
+                  ? t('plan.receivedWithheldOf', { got: formatMoney(received), w: formatMoney(withheld), left: formatMoney(left) })
+                  : t('plan.receivedOf', { got: formatMoney(received), left: formatMoney(left) }))
                 : t('plan.estimateDone', { p: formatPercent(total > 0 ? (done / total) * 100 : 0) })}
             </span>
           </>

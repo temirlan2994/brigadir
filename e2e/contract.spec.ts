@@ -46,6 +46,53 @@ test('телефон: +996 уже стоит, номер пишется посл
   await expect(page.getByTestId('cp-selected')).toContainText('+996 555 123 456');
 });
 
+test('телефон, набранный по цифре: «0555…» без лишнего нуля, чужой код — как набран', async ({ page }) => {
+  await page.goto('/#/');
+  await page.getByTestId('start-new-object').click();
+  await page.getByTestId('cp-new').click();
+  await page.getByTestId('cp-name').fill('Асан');
+  await page.getByTestId('cp-phone').pressSequentially('0555123456');
+  await expect(page.getByTestId('cp-phone')).toHaveValue('555 123 456');
+
+  // Код страны, которой нет в списке, не превращается в +996
+  await page.getByTestId('cp-phone').fill('');
+  await page.getByTestId('cp-phone').pressSequentially('+48512345678');
+  await expect(page.getByTestId('cp-phone')).toHaveValue('+48512345678');
+  await expect(page.getByTestId('cp-phone-country')).toContainText('+…');
+  await page.getByTestId('cp-save').click();
+  await expect(page.getByTestId('cp-selected')).toContainText('+48512345678');
+});
+
+test('цена в ячейке: «Дальше» ведёт к цене бригаде, строка не прыгает', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await page.goto('/#/objects');
+  await page.getByTestId('object-БЦ «Триумф»').click();
+  await page.getByTestId('menu-prices').click();
+  await page.getByTestId('rate-c-Арматура').click();
+  await typeNum(page, '30');
+  await page.getByTestId('keypad-next').click();
+  await typeNum(page, '20');
+  await expect(page.getByTestId('rate-w-Арматура')).toContainText('20');
+  await page.getByTestId('keypad-done').click();
+  await expect(page.getByTestId('rate-c-Арматура')).toContainText('30');
+  await expect(page.getByTestId('rate-w-Арматура')).toContainText('20');
+});
+
+test('у живого объекта способ оплаты меняется только с подтверждением', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await page.goto('/#/objects');
+  await page.getByTestId('object-БЦ «Триумф»').click();
+  await page.getByTestId('menu-contract').click();
+  page.once('dialog', (d) => void d.dismiss());
+  await page.getByTestId('basis-fixed').click();
+  // Отказались — осталось «за объёмы»
+  await expect(page.getByText('Смета — примерно на сколько весь объект')).toBeVisible();
+  page.once('dialog', (d) => void d.accept());
+  await page.getByTestId('basis-fixed').click();
+  // Сумма договора не задана — разбивка не сходится и не сохраняется
+  await expect(page.getByTestId('contract-not-saved')).toBeVisible();
+});
+
 test('контрагент сохраняется: для второго объекта его просто выбирают', async ({ page }) => {
   await startWithObject(page, ['Азамат']);
   await page.goto('/#/objects/new');

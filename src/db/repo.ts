@@ -5,7 +5,7 @@ import type {
   Settings, SiteObject, WorkEntry, Worker, WorkType, Money, CashMove, Counterparty,
 } from './types';
 import { lineTotals } from '../core/calc';
-import { parsePhone, toE164 } from '../core/phone';
+import { guessCustomerKind, normalizePhone } from '../core/phone';
 
 export const uid = () => crypto.randomUUID();
 export const nowIso = () => new Date().toISOString();
@@ -87,44 +87,36 @@ export async function setObjectCounterparty(objectId: string, counterpartyId: st
 }
 
 // Старые объекты хранили заказчика текстом: заводим по нему контрагента.
-// Повторный запуск ничего не меняет; одинаковые имена — один контрагент
+// Повторный запуск ничего не меняет. Один контрагент — то же имя и не другой телефон:
+// «Асан» с двумя разными номерами — это два человека, номера не теряются
 export async function migrateCustomers() {
   const objects = await db.objects.toArray();
   const pending = objects.filter((o) => !o.counterpartyId && o.customerName?.trim());
   if (pending.length === 0) return;
-  const existing = await db.counterparties.toArray();
-  const byName = new Map(existing.map((c) => [c.name.trim().toLowerCase(), c]));
+  const known = await db.counterparties.toArray();
   for (const o of pending) {
     const name = o.customerName!.trim();
     const key = name.toLowerCase();
-    const phone = o.customerPhone ? normalizePhone(o.customerPhone) : undefined;
-    let cp = byName.get(key);
+    const phone = o.customerPhone?.trim() ? normalizePhone(o.customerPhone) : undefined;
+    let cp = known.find((c) => c.name.trim().toLowerCase() === key && (!phone || !c.phone || c.phone === phone));
     if (!cp) {
-      cp = await addCounterparty({ kind: 'company', name, phone });
-      byName.set(key, cp);
+      cp = await addCounterparty({ kind: guessCustomerKind(name), name, phone });
+      known.push(cp);
     } else if (!cp.phone && phone) {
       await db.counterparties.update(cp.id, { phone });
-      cp = { ...cp, phone };
-      byName.set(key, cp);
+      cp.phone = phone;
     }
-    await db.objects.update(o.id, { counterpartyId: cp.id, customerName: cp.name, customerPhone: cp.phone ?? phone });
+    await db.objects.update(o.id, { counterpartyId: cp.id, customerName: cp.name, customerPhone: cp.phone });
   }
 }
 
-// Телефон, записанный когда-то текстом, — в вид +996555123456; непонятный — как был
-export function normalizePhone(raw: string): string {
-  const { country, national } = parsePhone(raw);
-  return national.length >= 6 ? toE164(country, national) : raw.trim();
-}
-
-// Телефоны бригадиров из старых версий — тоже с кодом страны
+// Телефоны бригадиров из старых версий — с кодом страны и без пробелов
 export async function migrateWorkerPhones() {
   const workers = await db.workers.toArray();
   for (const w of workers) {
-    if (w.phone && !w.phone.startsWith('+')) {
-      const phone = normalizePhone(w.phone);
-      if (phone !== w.phone) await db.workers.update(w.id, { phone });
-    }
+    if (!w.phone) continue;
+    const phone = normalizePhone(w.phone);
+    if (phone !== w.phone) await db.workers.update(w.id, { phone });
   }
 }
 
@@ -137,6 +129,23 @@ export async function upsertRate(objectId: string, workTypeId: string, customerP
   } else {
     await db.rates.add({ id: uid(), objectId, workTypeId, customerPrice, workerPrice, updatedAt: nowIso() });
   }
+}
+
+// Одна из двух цен: вторую берём из базы в той же транзакции, а не со старого экрана
+export async function upsertRatePart(
+  objectId: string, workTypeId: string, patch: { customerPrice?: Money; workerPrice?: Money },
+) {
+  await db.transaction('rw', db.rates, async () => {
+    const existing = await db.rates.where({ objectId, workTypeId }).first();
+    if (existing) {
+      await db.rates.update(existing.id, { ...patch, updatedAt: nowIso() });
+    } else {
+      await db.rates.add({
+        id: uid(), objectId, workTypeId, updatedAt: nowIso(),
+        customerPrice: patch.customerPrice ?? 0, workerPrice: patch.workerPrice ?? 0,
+      });
+    }
+  });
 }
 
 export async function getRate(objectId: string, workTypeId: string): Promise<Rate | undefined> {

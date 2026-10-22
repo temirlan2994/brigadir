@@ -69,7 +69,7 @@ export function Handover() {
 
   async function report() {
     if (!s.object) return;
-    const res = await sendText(s.object.customerPhone, customerReportText(s.object, s.active, workTypes));
+    const res = await sendText(s.object.customerPhone, customerReportText(s.object, s.active, workTypes, s.statuses));
     if (res === 'copied') toast.show(t('common.copied'));
               else if (res === 'failed') toast.show(t('common.copyFailed'));
   }
@@ -130,6 +130,7 @@ export function Handover() {
               void acceptWorkEntryPartially(e.id, parseDecimal(v)).then(() => toast.show(t('common.saved')));
             }}
             suffix={e.unit}
+            decimals={3}
             autoOpen
             hint={t('handover.partialHint')}
             testId={`partial-input-${e.id}`}
@@ -148,7 +149,7 @@ export function Handover() {
         {s.fixed && s.object && (
           <>
             <p className="px-1 text-[14px] text-slate-500">{t('plan.stagesHint')}</p>
-            <PlanSchedule object={s.object} statuses={s.statuses} received={s.received} done={s.done} readOnly={customerMode} />
+            <PlanSchedule object={s.object} statuses={s.statuses} received={s.received} withheld={s.withheld} done={s.done} readOnly={customerMode} />
           </>
         )}
         {!s.fixed && (

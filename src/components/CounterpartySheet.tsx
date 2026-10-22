@@ -3,7 +3,7 @@ import { Contact } from 'lucide-react';
 import { useT } from '../i18n';
 import { addCounterparty, updateCounterparty } from '../db/repo';
 import { contactsSupported, pickContact } from '../lib/contacts';
-import { parsePhone, toE164 } from '../core/phone';
+import { normalizePhone } from '../core/phone';
 import { Sheet } from './Sheet';
 import { Segmented } from './Segmented';
 import { PhoneField } from './PhoneField';
@@ -44,10 +44,9 @@ export function CounterpartySheet({ initial, initialName, onClose, onSaved }: {
     const c = await pickContact();
     if (!c) return;
     const tel = c.tels[0];
-    const parsed = tel ? parsePhone(tel) : undefined;
     set({
       name: form.name.trim() ? form.name : c.name,
-      ...(parsed && parsed.national ? { phone: toE164(parsed.country, parsed.national) } : {}),
+      ...(tel ? { phone: normalizePhone(tel) } : {}),
     });
   }
 

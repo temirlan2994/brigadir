@@ -42,7 +42,7 @@ export function ObjectResult() {
   const topType = [...byType.entries()].sort((a, b) => b[1] - a[1])[0];
 
   async function report() {
-    const res = await sendText(o!.customerPhone, customerReportText(o!, s.active, workTypes));
+    const res = await sendText(o!.customerPhone, customerReportText(o!, s.active, workTypes, s.statuses));
     if (res === 'copied') toast.show(t('common.copied'));
               else if (res === 'failed') toast.show(t('common.copyFailed'));
   }

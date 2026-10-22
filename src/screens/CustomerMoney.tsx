@@ -43,7 +43,7 @@ export function CustomerMoney() {
         {showPlan && s.object && (
           <>
             <SectionTitle>{t('plan.schedule')}</SectionTitle>
-            <PlanSchedule object={s.object} statuses={s.statuses} received={s.received} done={s.done} readOnly={customerMode} />
+            <PlanSchedule object={s.object} statuses={s.statuses} received={s.received} withheld={s.withheld} done={s.done} readOnly={customerMode} />
           </>
         )}
 
