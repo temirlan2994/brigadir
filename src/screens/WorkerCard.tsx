@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Send } from 'lucide-react';
+import { ChevronRight, Send } from 'lucide-react';
 import { useT, useLangStore, formatDateShort, translate } from '../i18n';
 import { useEntries, usePayouts, useWorkers, useWorkTypes } from '../lib/hooks';
 import {
   activeEntries, accruedForWorker, paidToWorker, withheldFromWorker, workerBalance, notDeleted,
 } from '../core/calc';
-import { formatMoney, formatMoneyExact, formatQuantity, groupDigits } from '../core/format';
+import { formatMoney, formatMoneyExact, formatQuantity, groupDigits, parseDecimal } from '../core/format';
 import { updateWorker, nowIso } from '../db/repo';
 import { sendText } from '../lib/report';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
+import { Sheet } from '../components/Sheet';
+import { NumSheet } from '../components/NumSheet';
 import { Card, SectionTitle, TextField } from '../components/ui';
 import { wtLabel } from '../lib/summary';
 
@@ -27,7 +29,8 @@ export function WorkerCard() {
   const payouts = usePayouts();
   const workTypes = useWorkTypes();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: '', specialty: '', phone: '' });
+  const [headSheet, setHeadSheet] = useState(false);
+  const [form, setForm] = useState({ name: '', specialty: '', phone: '', headcount: '' });
 
   const worker = workers.find((w) => w.id === id);
   if (!worker) return <ScreenHeader title="" />;
@@ -38,7 +41,7 @@ export function WorkerCard() {
   const withheld = withheldFromWorker(payouts, id);
   const balance = workerBalance(active, payouts, id);
 
-  interface HistoryRow { date: string; createdAt: string; label: string; sub: string; amount: string; tone: string }
+  interface HistoryRow { date: string; createdAt: string; label: string; sub: string; amount: string; tone: string; to: string }
   const history: HistoryRow[] = [];
   for (const e of active) {
     const share = e.shares.find((s) => s.workerId === id);
@@ -50,6 +53,7 @@ export function WorkerCard() {
       label: `${wtLabel(wt, lang)} · ${formatQuantity(e.quantity)} ${e.unit}`,
       sub: others.length > 0 ? t('worker.with', { names: others.join(', ') }) : '',
       amount: `+${formatMoney(share.amount)}`, tone: 'text-money-in',
+      to: `/works/${e.id}`,
     });
   }
   for (const p of notDeleted(payouts).filter((p) => p.workerId === id)) {
@@ -58,6 +62,7 @@ export function WorkerCard() {
       date: p.date, createdAt: p.createdAt, label: t(key),
       sub: [t(p.method === 'cash' ? 'payout.cash' : 'payout.transfer'), p.note].filter(Boolean).join(' · '),
       amount: `−${formatMoney(p.amount)}`, tone: 'text-money-out',
+      to: `/record/payout/${p.id}`,
     });
   }
   history.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
@@ -92,16 +97,20 @@ export function WorkerCard() {
   async function sendStatement() {
     const res = await sendText(worker!.phone, statementText());
     if (res === 'copied') toast.show(t('common.copied'));
+              else if (res === 'failed') toast.show(t('common.copyFailed'));
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-paper pb-6">
       <ScreenHeader
         title={worker.name}
-        sub={[worker.specialty, worker.phone].filter(Boolean).join(' · ') || undefined}
+        sub={[
+          worker.headcount ? t('workers.headcountShort', { n: worker.headcount }) : undefined,
+          worker.specialty, worker.phone,
+        ].filter(Boolean).join(' · ') || undefined}
         right={
           <button className="min-h-[44px] rounded-full bg-white px-3 text-[13px] font-bold shadow-card" onClick={() => {
-            setForm({ name: worker.name, specialty: worker.specialty ?? '', phone: worker.phone ?? '' });
+            setForm({ name: worker.name, specialty: worker.specialty ?? '', phone: worker.phone ?? '', headcount: worker.headcount ? String(worker.headcount) : '' });
             setEditing(true);
           }}>
             {t('common.edit')}
@@ -128,15 +137,17 @@ export function WorkerCard() {
         </div>
 
         <SectionTitle>{t('worker.byDays')}</SectionTitle>
+        <p className="px-1 text-[13px] text-slate-500">{t('worker.tapToEdit')}</p>
         <div className="flex flex-col gap-2">
           {history.map((h, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 shadow-card">
+            <button key={i} className="flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-left shadow-card" onClick={() => navigate(h.to)}>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[16px] font-semibold">{h.label}</span>
                 <span className="block truncate text-[13px] font-medium text-slate-500">{formatDateShort(h.date, lang)}{h.sub ? ` · ${h.sub}` : ''}</span>
               </span>
-              <span className={`text-[17px] font-extrabold ${h.tone}`}>{h.amount}</span>
-            </div>
+              <span className={`shrink-0 text-[17px] font-extrabold ${h.tone}`}>{h.amount}</span>
+              <ChevronRight size={18} className="shrink-0 text-slate-300" aria-hidden="true" />
+            </button>
           ))}
           {history.length === 0 && <p className="py-4 text-center text-[15px] text-slate-400">{t('common.empty')}</p>}
         </div>
@@ -153,26 +164,41 @@ export function WorkerCard() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setEditing(false)}>
-          <div className="flex w-full max-w-[430px] flex-col gap-2 rounded-t-[28px] bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
-            <TextField label={t('workers.name')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <TextField label={t('workers.specialty')} value={form.specialty} onChange={(v) => setForm({ ...form, specialty: v })} />
-            <TextField label={t('workers.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} inputMode="tel" />
-            <BigButton
-              label={t('common.save')}
-              tone="dark"
-              disabled={!form.name.trim()}
-              onClick={() => {
-                void updateWorker(worker.id, {
-                  name: form.name.trim(),
-                  specialty: form.specialty.trim() || undefined,
-                  phone: form.phone.trim() || undefined,
-                });
-                setEditing(false);
-              }}
-            />
-          </div>
-        </div>
+        <Sheet onClose={() => setEditing(false)}>
+          <TextField label={t('workers.name')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+          <TextField label={t('workers.specialty')} value={form.specialty} onChange={(v) => setForm({ ...form, specialty: v })} />
+          <TextField label={t('workers.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} inputMode="tel" />
+          <button
+            className="flex min-h-[56px] items-center justify-between rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-left"
+            onClick={() => setHeadSheet(true)}
+          >
+            <span className="text-[12px] font-semibold text-slate-500">{t('workers.headcount')}</span>
+            <span className="text-[18px] font-bold">{form.headcount || '—'}</span>
+          </button>
+          <BigButton
+            label={t('common.save')}
+            tone="dark"
+            disabled={!form.name.trim()}
+            onClick={() => {
+              const head = Math.round(parseDecimal(form.headcount));
+              void updateWorker(worker.id, {
+                name: form.name.trim(),
+                specialty: form.specialty.trim() || undefined,
+                phone: form.phone.trim() || undefined,
+                headcount: head > 0 ? head : undefined,
+              });
+              setEditing(false);
+            }}
+          />
+        </Sheet>
+      )}
+      {headSheet && (
+        <NumSheet
+          title={t('workers.headcount')}
+          initial={form.headcount}
+          onClose={() => setHeadSheet(false)}
+          onSave={(v) => setForm({ ...form, headcount: v })}
+        />
       )}
     </div>
   );

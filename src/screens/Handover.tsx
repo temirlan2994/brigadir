@@ -69,6 +69,7 @@ export function Handover() {
     if (!s.object) return;
     const res = await sendText(s.object.customerPhone, customerReportText(s.object, s.active, workTypes));
     if (res === 'copied') toast.show(t('common.copied'));
+              else if (res === 'failed') toast.show(t('common.copyFailed'));
   }
 
   const row = (e: WorkEntry) => {

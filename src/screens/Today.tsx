@@ -10,6 +10,7 @@ import { todayStr, updateSettings } from '../db/repo';
 import { useToast } from '../state/toast';
 import { Tile } from '../components/Tile';
 import { BigButton } from '../components/BigButton';
+import { Sheet } from '../components/Sheet';
 import { Card, DarkCard, Pill, SectionTitle, Tag } from '../components/ui';
 
 // «Сегодня»: свободно ли на зарплату, одна большая кнопка «Записать работу», лента
@@ -172,8 +173,8 @@ export function Today() {
       </div>
 
       {showObjects && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setShowObjects(false)}>
-          <div className="w-full max-w-[430px] rounded-t-[28px] bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
+        <Sheet onClose={() => setShowObjects(false)}>
+          <div>
             <h2 className="pb-2 text-[18px] font-extrabold">{t('today.switchObject')}</h2>
             {openObjects.map((o) => (
               <button
@@ -189,7 +190,7 @@ export function Today() {
               <BigButton label={t('objects.new')} tone="dark" icon={<Plus size={22} aria-hidden="true" />} onClick={() => { setShowObjects(false); navigate('/objects/new'); }} />
             </div>
           </div>
-        </div>
+        </Sheet>
       )}
     </div>
   );

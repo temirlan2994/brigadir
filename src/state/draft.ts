@@ -1,9 +1,12 @@
 // Черновик мастера «Сделали работу» (zustand).
+// Лежит в localStorage: звонок или камера могут убить приложение посреди ввода.
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { SplitMode } from '../db/types';
 
 export interface WorkDraft {
   editId?: string; // правка существующей записи
+  objectId: string; // объект, на котором начат черновик
   workTypeId: string;
   quantityInput: string;
   areaMode: boolean;
@@ -23,6 +26,7 @@ export interface WorkDraft {
 }
 
 export const emptyDraft: WorkDraft = {
+  objectId: '',
   workTypeId: '',
   quantityInput: '',
   areaMode: false,
@@ -49,10 +53,13 @@ interface DraftState {
   reset: (draft?: Partial<WorkDraft>, step?: number) => void;
 }
 
-export const useDraft = create<DraftState>((set) => ({
-  draft: emptyDraft,
-  step: 0,
-  set: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
-  setStep: (step) => set({ step }),
-  reset: (draft, step = 0) => set({ draft: { ...emptyDraft, ...draft }, step }),
-}));
+export const useDraft = create<DraftState>()(persist(
+  (set) => ({
+    draft: emptyDraft,
+    step: 0,
+    set: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
+    setStep: (step) => set({ step }),
+    reset: (draft, step = 0) => set({ draft: { ...emptyDraft, ...draft }, step }),
+  }),
+  { name: 'brigadir-work-draft', partialize: (s) => ({ draft: s.draft }) },
+));

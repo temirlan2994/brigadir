@@ -177,7 +177,7 @@ test('расходы и выдачи видны по каждому объект
   await expect(page.getByText('Питание')).toHaveCount(0);
 });
 
-test('закрытие объекта показывает итог', async ({ page }) => {
+test('закрытие объекта показывает итог, и его можно открыть заново', async ({ page }) => {
   await startWithObject(page, ['Азамат']);
   await recordWelding(page, ['Азамат']);
   await page.getByTestId('tab-objects').click();
@@ -188,4 +188,44 @@ test('закрытие объекта показывает итог', async ({ p
   await expect(page.getByText('Заработал на объекте')).toBeVisible();
   await page.goto('/#/objects');
   await expect(page.getByText(/закрыт \d/)).toBeVisible();
+  // Закрытый объект открывается заново и снова принимает записи
+  await page.getByTestId('object-БЦ «Триумф»').click();
+  await page.getByTestId('reopen-object').click();
+  await page.goto('/#/');
+  await expect(page.getByTestId('btn-work')).toBeVisible();
+  await expect(page.getByText('БЦ «Триумф»')).toBeVisible();
+});
+
+test('выдача правится из истории бригадира', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await recordWelding(page, ['Азамат']);
+  await page.getByTestId('btn-payout').click();
+  await page.getByTestId('pick-Азамат').click();
+  await typeNum(page, '5000');
+  await page.getByTestId('save-payout').click();
+  await expect(page.getByTestId('owed-to-workers')).toContainText('49 000 сом');
+  // История → строка выдачи → изменить сумму на 7 000
+  await page.getByTestId('tab-team').click();
+  await page.getByTestId('worker-card-Азамат').click();
+  await page.getByRole('button', { name: /Выдача/ }).click();
+  await page.getByTestId('edit-amount-btn').click();
+  for (let i = 0; i < 4; i++) await page.locator('[data-key="erase"]').last().click();
+  await typeNum(page, '7000');
+  await page.getByRole('button', { name: 'Готово' }).click();
+  await expect(page.getByText('7 000 сом')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByTestId('worker-balance')).toContainText('47 000 сом');
+});
+
+test('черновик мастера переживает перезагрузку', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await page.getByTestId('btn-work').click();
+  await page.getByTestId('wt-Сварка').click();
+  await typeNum(page, '500');
+  await page.getByTestId('next-2').click();
+  await page.reload();
+  // Остаёмся на шаге «Чья бригада работала?» — объём не потерян
+  await page.getByTestId('worker-Азамат').click();
+  await page.getByTestId('next-3').click();
+  await expect(page.getByText('32 500 сом')).toBeVisible();
 });

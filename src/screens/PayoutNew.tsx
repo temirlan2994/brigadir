@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '../i18n';
-import { useActiveObject, useEntries, usePayouts, useWorkers } from '../lib/hooks';
+import { useActiveObject, useEntries, useObjects, usePayouts, useWorkers } from '../lib/hooks';
 import { activeEntries, workerBalance } from '../core/calc';
 import { formatMoney, somsToTyiyn, tyiynToSomsInput } from '../core/format';
 import { addPayout, hardDelete, todayStr } from '../db/repo';
@@ -22,6 +22,7 @@ export function PayoutNew() {
   const workers = useWorkers();
   const entries = useEntries();
   const payouts = usePayouts();
+  const objects = useObjects();
   const activeObject = useActiveObject();
 
   const [workerId, setWorkerId] = useState(params.get('workerId') ?? '');
@@ -35,15 +36,29 @@ export function PayoutNew() {
   const worker = workers.find((w) => w.id === workerId);
   const balance = workerId ? workerBalance(active, payouts, workerId) : 0;
 
+  const savingRef = useRef(false);
+
   async function save() {
     const tyiyn = somsToTyiyn(amount);
-    if (!workerId || tyiyn <= 0) return;
-    const row = await addPayout({
-      objectId: activeObject?.id, workerId, date, amount: tyiyn,
-      method, kind, note: note.trim() || undefined,
-    });
-    navigate(-1);
-    toast.show(t('common.saved'), () => hardDelete('payouts', row.id));
+    if (!workerId || tyiyn <= 0 || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      // Выдача пишется на открытый объект, где накоплен долг бригадира,
+      // если такой один; иначе — на текущий объект
+      const openIds = new Set(objects.filter((o) => !o.closedAt && !o.archivedAt).map((o) => o.id));
+      const debtObjects = [...new Set(active
+        .filter((e) => e.shares.some((s) => s.workerId === workerId))
+        .map((e) => e.objectId))].filter((oid) => openIds.has(oid));
+      const objectId = debtObjects.length === 1 ? debtObjects[0] : activeObject?.id;
+      const row = await addPayout({
+        objectId, workerId, date, amount: tyiyn,
+        method, kind, note: note.trim() || undefined,
+      });
+      navigate(-1);
+      toast.show(t('common.saved'), () => hardDelete('payouts', row.id));
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   if (!workerId) {

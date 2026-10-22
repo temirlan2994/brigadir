@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
@@ -27,6 +27,7 @@ export function WorkEntryCard() {
   const customerMode = useView((v) => v.customerMode);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [showVersions, setShowVersions] = useState(false);
+  const removingRef = useRef(false);
 
   const entry = entries.find((e) => e.id === id);
 
@@ -58,9 +59,15 @@ export function WorkEntryCard() {
   }
 
   async function remove() {
-    await softDelete('workEntries', entry!.id);
-    navigate(-1);
-    toast.show(t('common.deleted'), () => restore('workEntries', entry!.id));
+    if (removingRef.current) return;
+    removingRef.current = true;
+    try {
+      await softDelete('workEntries', entry!.id);
+      navigate(-1);
+      toast.show(t('common.deleted'), () => restore('workEntries', entry!.id));
+    } finally {
+      removingRef.current = false;
+    }
   }
 
   return (

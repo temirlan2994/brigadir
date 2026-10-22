@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '../i18n';
 import { somsToTyiyn } from '../core/format';
@@ -20,12 +20,19 @@ export function CashMoveNew() {
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState('');
 
+  const savingRef = useRef(false);
+
   async function save() {
     const tyiyn = somsToTyiyn(amount);
-    if (tyiyn <= 0) return;
-    const row = await addCashMove({ date, kind, amount: tyiyn, note: note.trim() || undefined });
-    navigate(-1);
-    toast.show(t('common.saved'), () => hardDelete('cashMoves', row.id));
+    if (tyiyn <= 0 || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      const row = await addCashMove({ date, kind, amount: tyiyn, note: note.trim() || undefined });
+      navigate(-1);
+      toast.show(t('common.saved'), () => hardDelete('cashMoves', row.id));
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   return (

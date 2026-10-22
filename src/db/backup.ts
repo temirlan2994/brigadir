@@ -1,7 +1,6 @@
 // Резервная копия: экспорт и импорт одного JSON-файла.
 // Фото — отдельным флажком (base64), по умолчанию выключены из-за размера.
 import { db } from './db';
-import { wipeAll } from './repo';
 import type { Photo } from './types';
 
 export interface BackupFile {
@@ -53,10 +52,11 @@ export function isBackupFile(value: unknown): value is BackupFile {
   return v.app === 'brigadir' && v.schema === 1 && typeof v.data === 'object' && v.data !== null;
 }
 
-// Импорт заменяет все данные
+// Импорт заменяет все данные. Очистка и вставка — одна транзакция:
+// битый файл откатывается целиком, старые данные остаются
 export async function importBackup(file: BackupFile): Promise<void> {
-  await wipeAll();
   await db.transaction('rw', db.tables, async () => {
+    for (const table of db.tables) await table.clear();
     for (const name of DATA_TABLES) {
       const rows = file.data[name];
       if (Array.isArray(rows) && rows.length > 0) {

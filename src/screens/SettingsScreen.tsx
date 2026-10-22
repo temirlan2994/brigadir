@@ -11,6 +11,7 @@ import { somsToTyiyn, tyiynToSomsInput, parseDecimal } from '../core/format';
 import { useToast } from '../state/toast';
 import { useSw } from '../state/sw';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { Sheet } from '../components/Sheet';
 import { Segmented } from '../components/Segmented';
 import { NumSheet } from '../components/NumSheet';
 import { BigButton } from '../components/BigButton';
@@ -175,7 +176,15 @@ export function SettingsScreen() {
         <Card className="flex flex-col gap-2 !p-3">
           <p className="px-1 text-[15px] text-slate-500">{t('settings.version', { v: __APP_VERSION__ })}</p>
           <BigButton label={t('update.check')} tone="neutral" onClick={() => void checkUpdates()} testId="check-updates" />
-          <BigButton label={t('settings.loadDemo')} tone="neutral" onClick={() => void loadDemo().then(() => toast.show(t('common.saved')))} />
+          <BigButton
+            label={t('settings.loadDemo')}
+            tone="neutral"
+            onClick={() => {
+              // Поверх реальных данных демо подмешивается — предупреждаем
+              if (!window.confirm(t('settings.demoConfirm'))) return;
+              void loadDemo().then(() => toast.show(t('common.saved')));
+            }}
+          />
         </Card>
 
         {/* Начать с нуля — заметной кнопкой, с подтверждением словом */}
@@ -187,40 +196,36 @@ export function SettingsScreen() {
       </div>
 
       {wtForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setWtForm(null)}>
-          <div className="flex max-h-[85vh] w-full max-w-[430px] flex-col gap-2 overflow-y-auto rounded-t-[28px] bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
-            <TextField label={t('settings.nameRu')} value={wtForm.nameRu} onChange={(v) => setWtForm({ ...wtForm, nameRu: v })} autoFocus />
-            <TextField label={t('settings.nameKy')} value={wtForm.nameKy} onChange={(v) => setWtForm({ ...wtForm, nameKy: v })} />
-            <p className="pt-1 text-[13px] font-semibold text-slate-500">{t('settings.icon')}</p>
-            <div className="grid grid-cols-6 gap-1.5">
-              {CUSTOM_ICONS.map((icon) => (
-                <button key={icon} aria-label={icon} className={`flex min-h-[48px] items-center justify-center rounded-xl border ${wtForm.icon === icon ? 'border-ink bg-paper' : 'border-line'}`} onClick={() => setWtForm({ ...wtForm, icon })}>
-                  <Icon name={icon} size={24} />
-                </button>
-              ))}
-            </div>
-            <p className="pt-1 text-[13px] font-semibold text-slate-500">{t('settings.unit')}</p>
-            <select className="min-h-[52px] rounded-[14px] border border-line bg-white px-3 text-[17px]" value={wtForm.unit} onChange={(e) => setWtForm({ ...wtForm, unit: e.target.value as Unit })}>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-            <label className="flex min-h-[44px] items-center gap-2 text-[15px]">
-              <input type="checkbox" className="h-5 w-5 accent-[#17191c]" checked={wtForm.area} onChange={(e) => setWtForm({ ...wtForm, area: e.target.checked })} />
-              {t('settings.areaCalc')}
-            </label>
-            <BigButton label={t('common.save')} tone="dark" disabled={!wtForm.nameRu.trim()} onClick={() => void saveCustomWorkType()} />
+        <Sheet onClose={() => setWtForm(null)}>
+          <TextField label={t('settings.nameRu')} value={wtForm.nameRu} onChange={(v) => setWtForm({ ...wtForm, nameRu: v })} autoFocus />
+          <TextField label={t('settings.nameKy')} value={wtForm.nameKy} onChange={(v) => setWtForm({ ...wtForm, nameKy: v })} />
+          <p className="pt-1 text-[13px] font-semibold text-slate-500">{t('settings.icon')}</p>
+          <div className="grid grid-cols-6 gap-1.5">
+            {CUSTOM_ICONS.map((icon) => (
+              <button key={icon} aria-label={icon} className={`flex min-h-[48px] items-center justify-center rounded-xl border ${wtForm.icon === icon ? 'border-ink bg-paper' : 'border-line'}`} onClick={() => setWtForm({ ...wtForm, icon })}>
+                <Icon name={icon} size={24} />
+              </button>
+            ))}
           </div>
-        </div>
+          <p className="pt-1 text-[13px] font-semibold text-slate-500">{t('settings.unit')}</p>
+          <select className="min-h-[52px] rounded-[14px] border border-line bg-white px-3 text-[17px]" value={wtForm.unit} onChange={(e) => setWtForm({ ...wtForm, unit: e.target.value as Unit })}>
+            {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <label className="flex min-h-[44px] items-center gap-2 text-[15px]">
+            <input type="checkbox" className="h-5 w-5 accent-[#17191c]" checked={wtForm.area} onChange={(e) => setWtForm({ ...wtForm, area: e.target.checked })} />
+            {t('settings.areaCalc')}
+          </label>
+          <BigButton label={t('common.save')} tone="dark" disabled={!wtForm.nameRu.trim()} onClick={() => void saveCustomWorkType()} />
+        </Sheet>
       )}
 
       {wipeInput !== null && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setWipeInput(null)}>
-          <div className="flex w-full max-w-[430px] flex-col gap-2 rounded-t-[28px] bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
-            <p className="text-[18px] font-extrabold">{t('settings.wipe')}</p>
-            <p className="text-[15px] text-slate-500">{t('settings.wipeConfirm')}</p>
-            <input autoFocus className="min-h-[56px] rounded-[14px] border border-line px-3 text-[18px]" value={wipeInput} onChange={(e) => setWipeInput(e.target.value)} data-testid="wipe-word" />
-            <BigButton label={t('common.delete')} tone="danger" disabled={wipeInput.trim().toLowerCase() !== t('settings.wipeWord')} onClick={() => void wipe()} testId="wipe-confirm" />
-          </div>
-        </div>
+        <Sheet onClose={() => setWipeInput(null)}>
+          <p className="text-[18px] font-extrabold">{t('settings.wipe')}</p>
+          <p className="text-[15px] text-slate-500">{t('settings.wipeConfirm')}</p>
+          <input autoFocus className="min-h-[56px] rounded-[14px] border border-line px-3 text-[18px]" value={wipeInput} onChange={(e) => setWipeInput(e.target.value)} data-testid="wipe-word" />
+          <BigButton label={t('common.delete')} tone="danger" disabled={wipeInput.trim().toLowerCase() !== t('settings.wipeWord')} onClick={() => void wipe()} testId="wipe-confirm" />
+        </Sheet>
       )}
 
       {numSheet && <NumSheet title={numSheet.title} initial={numSheet.initial} onSave={numSheet.save} onClose={() => setNumSheet(null)} />}

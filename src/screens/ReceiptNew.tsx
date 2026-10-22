@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '../i18n';
 import { useActiveObject, useObject } from '../lib/hooks';
@@ -27,12 +27,19 @@ export function ReceiptNew() {
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState('');
 
+  const savingRef = useRef(false);
+
   async function save() {
     const tyiyn = somsToTyiyn(amount);
-    if (tyiyn <= 0 || !object) return;
-    const row = await addReceipt({ objectId: object.id, date, amount: tyiyn, method, kind, note: note.trim() || undefined });
-    navigate(-1);
-    toast.show(t('common.saved'), () => hardDelete('receipts', row.id));
+    if (tyiyn <= 0 || !object || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      const row = await addReceipt({ objectId: object.id, date, amount: tyiyn, method, kind, note: note.trim() || undefined });
+      navigate(-1);
+      toast.show(t('common.saved'), () => hardDelete('receipts', row.id));
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   return (

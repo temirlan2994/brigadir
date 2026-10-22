@@ -4,10 +4,11 @@ import { Plus } from 'lucide-react';
 import { useT } from '../i18n';
 import { useEntries, usePayouts, useWorkers } from '../lib/hooks';
 import { activeEntries, workerBalance, owedToWorkers } from '../core/calc';
-import { formatMoney } from '../core/format';
+import { formatMoney, parseDecimal } from '../core/format';
 import { addWorker } from '../db/repo';
 import { WorkerCircle } from '../components/WorkerCircle';
 import { BigButton } from '../components/BigButton';
+import { NumSheet } from '../components/NumSheet';
 import { DarkCard, TextField } from '../components/ui';
 
 // Бригада: кому сколько должен; «Рассчитаться»; добавить человека
@@ -20,6 +21,8 @@ export function Team() {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [specialty, setSpecialty] = useState('');
+  const [headcount, setHeadcount] = useState('');
+  const [headSheet, setHeadSheet] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const active = activeEntries(entries);
@@ -36,9 +39,11 @@ export function Team() {
   async function saveWorker() {
     const n = name.trim();
     if (!n) return;
-    await addWorker(n, specialty.trim() || undefined);
+    const head = Math.round(parseDecimal(headcount));
+    await addWorker(n, specialty.trim() || undefined, undefined, head > 0 ? head : undefined);
     setName('');
     setSpecialty('');
+    setHeadcount('');
     setAdding(false);
   }
 
@@ -55,7 +60,7 @@ export function Team() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-[14px] font-medium text-white/65">{t('today.oweTeam')}</span>
-                <span className="mt-1 block text-[34px] font-black leading-none" data-testid="owed-to-workers">{formatMoney(owed)}</span>
+                <span className="mt-1 block whitespace-nowrap text-[30px] font-black leading-none" data-testid="owed-to-workers">{formatMoney(owed)}</span>
               </div>
               <button className="min-h-[48px] rounded-[14px] bg-accent px-4 text-[15px] font-bold text-ink" onClick={() => navigate('/payout/new')} data-testid="btn-payout">
                 {t('team.settle')}
@@ -77,7 +82,9 @@ export function Team() {
               <WorkerCircle worker={w} size={46} />
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate text-[17px] font-bold">{w.name}</span>
-                {w.specialty && <span className="block text-[13px] font-medium text-slate-500">{w.specialty}</span>}
+                <span className="block truncate text-[13px] font-medium text-slate-500">
+                  {[w.headcount ? t('workers.headcountShort', { n: w.headcount }) : undefined, w.specialty].filter(Boolean).join(' · ')}
+                </span>
               </span>
               <span className="text-right">
                 <span className={`block text-[19px] font-extrabold ${word.cls}`}>{formatMoney(Math.abs(b))}</span>
@@ -95,6 +102,13 @@ export function Team() {
           <div className="flex flex-col gap-2 rounded-[18px] bg-white p-3 shadow-card">
             <TextField label={t('workers.name')} value={name} onChange={setName} autoFocus testId="worker-name-input" />
             <TextField label={t('workers.specialty')} value={specialty} onChange={setSpecialty} />
+            <button
+              className="flex min-h-[56px] items-center justify-between rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-left"
+              onClick={() => setHeadSheet(true)}
+            >
+              <span className="text-[12px] font-semibold text-slate-500">{t('workers.headcount')}</span>
+              <span className="text-[18px] font-bold">{headcount || '—'}</span>
+            </button>
             <BigButton label={t('common.save')} tone="dark" disabled={!name.trim()} onClick={() => void saveWorker()} testId="worker-save" />
           </div>
         ) : (
@@ -115,6 +129,10 @@ export function Team() {
           </div>
         )}
       </div>
+
+      {headSheet && (
+        <NumSheet title={t('workers.headcount')} initial={headcount} onSave={setHeadcount} onClose={() => setHeadSheet(false)} />
+      )}
     </div>
   );
 }

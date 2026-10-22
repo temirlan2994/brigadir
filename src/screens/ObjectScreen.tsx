@@ -3,7 +3,8 @@ import { Plus } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
 import { formatMoney } from '../core/format';
 import { useObjectSummary } from '../lib/summary';
-import { updateSettings } from '../db/repo';
+import { updateObject, updateSettings } from '../db/repo';
+import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
 import { Card, KvRow, MenuRow, Pill, StageStrip } from '../components/ui';
@@ -13,6 +14,7 @@ export function ObjectScreen() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
   const navigate = useNavigate();
+  const toast = useToast();
   const { id = '' } = useParams();
   const s = useObjectSummary(id);
   const o = s.object;
@@ -61,13 +63,29 @@ export function ObjectScreen() {
           testId="menu-result"
         />
 
-        {!o.closedAt && !o.archivedAt && (
+        {!o.closedAt && !o.archivedAt ? (
           <div className="sticky bottom-0 mt-auto bg-paper pt-3">
             <BigButton
               label={t('today.recordWork')}
               tone="dark"
               icon={<Plus size={24} strokeWidth={2.6} aria-hidden="true" />}
               onClick={() => { void updateSettings({ activeObjectId: o.id }); navigate('/work/new'); }}
+            />
+          </div>
+        ) : (
+          <div className="sticky bottom-0 mt-auto bg-paper pt-3">
+            <BigButton
+              label={o.closedAt ? t('object.reopen') : t('workers.unarchive')}
+              tone="dark"
+              testId="reopen-object"
+              onClick={() => {
+                void (async () => {
+                  await updateObject(o.id, o.closedAt ? { closedAt: undefined } : { archivedAt: undefined });
+                  // Снова открытый объект сразу становится текущим
+                  await updateSettings({ activeObjectId: o.id });
+                  toast.show(t('common.saved'));
+                })();
+              }}
             />
           </div>
         )}

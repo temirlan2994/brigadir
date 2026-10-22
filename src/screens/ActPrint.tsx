@@ -1,9 +1,13 @@
 import { useSearchParams } from 'react-router-dom';
+import { Printer, Send } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
 import { useActiveObject, useEntries, useWorkTypes, byObject, useObject } from '../lib/hooks';
 import { activeEntries } from '../core/calc';
 import { formatMoneyExact, formatQuantity } from '../core/format';
 import { todayStr } from '../db/repo';
+import { isStandalone } from '../lib/files';
+import { actText, sendText } from '../lib/report';
+import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
 import { wtLabel } from '../lib/summary';
@@ -12,6 +16,7 @@ import { wtLabel } from '../lib/summary';
 export function ActPrint() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
+  const toast = useToast();
   const [params] = useSearchParams();
   const paramObject = useObject(params.get('objectId') ?? undefined);
   const activeObjectHook = useActiveObject();
@@ -79,8 +84,31 @@ export function ActPrint() {
         </div>
       </div>
 
-      <div className="no-print px-4 pb-6">
-        <BigButton label={t('act.print')} onClick={() => window.print()} testId="print-act" />
+      <div className="no-print flex flex-col gap-2 px-4 pb-6">
+        {/* В установленном приложении печати нет — акт уходит текстом в WhatsApp */}
+        <BigButton
+          label={t('act.send')}
+          icon={<Send size={20} aria-hidden="true" />}
+          testId="send-act"
+          onClick={() => {
+            if (!activeObject) return;
+            const text = actText(
+              activeObject,
+              accepted.map((e) => ({
+                name: workTypes.find((w) => w.id === e.workTypeId)?.nameRu ?? '',
+                unit: e.unit, qty: e.actQuantity, price: e.customerPrice, total: e.actTotal,
+              })),
+              total, formatQuantity, formatMoneyExact,
+            );
+            void sendText(activeObject.customerPhone, text).then((res) => {
+              if (res === 'copied') toast.show(t('common.copied'));
+              else if (res === 'failed') toast.show(t('common.copyFailed'));
+            });
+          }}
+        />
+        {!isStandalone() && (
+          <BigButton label={t('act.print')} tone="neutral" icon={<Printer size={20} aria-hidden="true" />} onClick={() => window.print()} testId="print-act" />
+        )}
       </div>
     </div>
   );

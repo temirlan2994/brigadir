@@ -43,6 +43,9 @@ export function NewObjectWizard() {
     if (entryIdxRef.current === null) {
       entryIdxRef.current = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     }
+    // Перезагрузка посреди мастера: поля пусты — возвращаемся на первый шаг
+    if (step > 0 && !name.trim()) navigate('?step=0', { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Цены по умолчанию из справочника; популярные виды отмечены заранее

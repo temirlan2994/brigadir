@@ -6,7 +6,8 @@ import { useFeed, useHomeSummary, wtLabel } from '../lib/summary';
 import { useObjects, useWorkers, useWorkTypes } from '../lib/hooks';
 import { activeEntries, notDeleted, payoutsFromCash, contractorExpensesTotal, receiptsTotal, cashMovesNet } from '../core/calc';
 import { formatMoney } from '../core/format';
-import { toCsv, downloadText } from '../lib/files';
+import { toCsvSections, downloadText } from '../lib/files';
+import { useToast } from '../state/toast';
 import { BigButton } from '../components/BigButton';
 import { Card, DarkCard, Pill, SectionTitle, Tag } from '../components/ui';
 
@@ -15,6 +16,7 @@ export function Cash() {
   const t = useT();
   const lang = useLangStore((s) => s.lang);
   const navigate = useNavigate();
+  const toast = useToast();
   const sum = useHomeSummary();
   const [filterObjectId, setFilterObjectId] = useState('');
   const feed = useFeed(30, filterObjectId || undefined);
@@ -27,33 +29,43 @@ export function Cash() {
   const expenses = contractorExpensesTotal(sum.expenses);
   const movesNet = cashMovesNet(sum.moves);
 
-  function exportCsv() {
+  // Один файл с разделами: телефон пропускает только одно скачивание на тап
+  async function exportCsv() {
     const act = activeEntries(sum.entries);
     const soms = (tyiyn: number) => (tyiyn / 100).toFixed(2).replace('.', ',');
     const objName = (id?: string) => objects.find((o) => o.id === id)?.name ?? '';
     const workerName = (id: string) => workers.find((w) => w.id === id)?.name ?? '';
     const L = (key: string) => translate(lang, key);
 
-    downloadText('raboty.csv', toCsv(
-      [L('common.date'), L('common.object'), L('works.filterType'), L('works.quantity'), L('settings.unit'), L('wizard.customerPrice'), L('wizard.workerPrice'), L('wizard.customerTotal'), L('wizard.workersTotal'), L('works.statusAccepted'), L('common.note')],
-      act.map((e) => [e.date, objName(e.objectId), wtLabel(workTypes.find((w) => w.id === e.workTypeId), lang), String(e.quantity).replace('.', ','), e.unit, soms(e.customerPrice), soms(e.workerPrice), soms(e.customerTotal), soms(e.workersTotal), e.accepted ? String(e.acceptedQuantity ?? e.quantity).replace('.', ',') : '0', e.note ?? '']),
-    ), 'text/csv;charset=utf-8');
-    downloadText('vydachi.csv', toCsv(
-      [L('common.date'), L('common.object'), L('workers.name'), L('common.sum'), L('adjustment.kind'), L('common.method'), L('common.note')],
-      notDeleted(sum.payouts).map((p) => [p.date, objName(p.objectId), workerName(p.workerId), soms(p.amount), L(p.kind === 'advance' ? 'feed.advance' : p.kind === 'deduction' ? 'feed.deduction' : 'feed.payout'), L(p.method === 'cash' ? 'payout.cash' : 'payout.transfer'), p.note ?? '']),
-    ), 'text/csv;charset=utf-8');
-    downloadText('rashody.csv', toCsv(
-      [L('common.date'), L('common.object'), L('expense.pickCategory'), L('common.sum'), L('expense.whoPays'), L('common.note')],
-      notDeleted(sum.expenses).map((e) => [e.date, objName(e.objectId), L(`expense.${e.category}`), soms(e.amount), e.paidBy === 'contractor' ? L('expense.me') : L('expense.customer'), e.note ?? '']),
-    ), 'text/csv;charset=utf-8');
-    downloadText('postupleniya.csv', toCsv(
-      [L('common.date'), L('common.object'), L('common.sum'), L('adjustment.kind'), L('common.method'), L('common.note')],
-      notDeleted(sum.receipts).map((r) => [r.date, objName(r.objectId), soms(r.amount), L(r.kind === 'advance' ? 'feed.customerAdvance' : 'feed.receipt'), L(r.method === 'cash' ? 'payout.cash' : 'payout.transfer'), r.note ?? '']),
-    ), 'text/csv;charset=utf-8');
-    downloadText('kassa.csv', toCsv(
-      [L('common.date'), L('adjustment.kind'), L('common.sum'), L('common.note')],
-      notDeleted(sum.moves).map((m) => [m.date, L(m.kind === 'draw' ? 'cash.drawTitle' : 'cash.contributionTitle'), soms(m.amount), m.note ?? '']),
-    ), 'text/csv;charset=utf-8');
+    const csv = toCsvSections([
+      {
+        title: L('nav.objects') + ' — ' + L('object.works'),
+        header: [L('common.date'), L('common.object'), L('works.filterType'), L('works.quantity'), L('settings.unit'), L('wizard.customerPrice'), L('wizard.workerPrice'), L('wizard.customerTotal'), L('wizard.workersTotal'), L('works.statusAccepted'), L('common.note')],
+        rows: act.map((e) => [e.date, objName(e.objectId), wtLabel(workTypes.find((w) => w.id === e.workTypeId), lang), String(e.quantity).replace('.', ','), e.unit, soms(e.customerPrice), soms(e.workerPrice), soms(e.customerTotal), soms(e.workersTotal), e.accepted ? String(e.acceptedQuantity ?? e.quantity).replace('.', ',') : '0', e.note ?? '']),
+      },
+      {
+        title: L('objectOut.payouts'),
+        header: [L('common.date'), L('common.object'), L('workers.name'), L('common.sum'), L('adjustment.kind'), L('common.method'), L('common.note')],
+        rows: notDeleted(sum.payouts).map((p) => [p.date, objName(p.objectId), workerName(p.workerId), soms(p.amount), L(p.kind === 'advance' ? 'feed.advance' : p.kind === 'deduction' ? 'feed.deduction' : 'feed.payout'), L(p.method === 'cash' ? 'payout.cash' : 'payout.transfer'), p.note ?? '']),
+      },
+      {
+        title: L('objectOut.myExpenses'),
+        header: [L('common.date'), L('common.object'), L('expense.pickCategory'), L('common.sum'), L('expense.whoPays'), L('common.note')],
+        rows: notDeleted(sum.expenses).map((e) => [e.date, objName(e.objectId), L(`expense.${e.category}`), soms(e.amount), e.paidBy === 'contractor' ? L('expense.me') : L('expense.customer'), e.note ?? '']),
+      },
+      {
+        title: L('details.receipts'),
+        header: [L('common.date'), L('common.object'), L('common.sum'), L('adjustment.kind'), L('common.method'), L('common.note')],
+        rows: notDeleted(sum.receipts).map((r) => [r.date, objName(r.objectId), soms(r.amount), L(r.kind === 'advance' ? 'feed.customerAdvance' : 'feed.receipt'), L(r.method === 'cash' ? 'payout.cash' : 'payout.transfer'), r.note ?? '']),
+      },
+      {
+        title: L('nav.cash'),
+        header: [L('common.date'), L('adjustment.kind'), L('common.sum'), L('common.note')],
+        rows: notDeleted(sum.moves).map((m) => [m.date, L(m.kind === 'draw' ? 'cash.drawTitle' : 'cash.contributionTitle'), soms(m.amount), m.note ?? '']),
+      },
+    ]);
+    await downloadText('brigadir.csv', csv, 'text/csv;charset=utf-8');
+    toast.show(t('cash.exported'));
   }
 
   return (
@@ -117,7 +129,7 @@ export function Cash() {
         ))}
         {feed.length === 0 && <p className="py-4 text-center text-[15px] text-slate-400">{t('common.empty')}</p>}
 
-        <BigButton label={t('cash.exportCsv')} tone="neutral" icon={<FileText size={20} aria-hidden="true" />} onClick={exportCsv} testId="export-csv" />
+        <BigButton label={t('cash.exportCsv')} tone="neutral" icon={<FileText size={20} aria-hidden="true" />} onClick={() => void exportCsv()} testId="export-csv" />
       </div>
     </div>
   );

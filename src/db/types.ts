@@ -53,11 +53,13 @@ export interface Rate {
   updatedAt: string;
 }
 
+// Бригадир: Самат-подрядчик раздаёт объёмы бригадирам, у каждого своя бригада
 export interface Worker {
   id: string;
   name: string;
   specialty?: string;
   phone?: string;
+  headcount?: number; // сколько человек в его бригаде
   color: string; // цвет кружка с инициалами
   createdAt: string;
   archivedAt?: string;

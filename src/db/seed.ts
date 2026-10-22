@@ -81,10 +81,10 @@ export async function loadDemo(): Promise<void> {
   const obj = await addObject('БЦ «Триумф»', 'СтройКом', { paymentTerms: 'По акту, раз в неделю' });
   await seedRatesForObject(obj.id);
 
-  const azamat = await addWorker('Азамат', 'сварщик');
-  const nurlan = await addWorker('Нурлан', 'сварщик');
-  const bakyt = await addWorker('Бакыт', 'каменщик');
-  const erlan = await addWorker('Эрлан', 'разнорабочий');
+  const azamat = await addWorker('Азамат', 'сварщики', undefined, 4);
+  const nurlan = await addWorker('Нурлан', 'сварщики', undefined, 3);
+  const bakyt = await addWorker('Бакыт', 'каменщики', undefined, 5);
+  const erlan = await addWorker('Эрлан', 'разнорабочие', undefined, 2);
 
   const types = await db.workTypes.toArray();
   const byName = (name: string) => types.find((t) => t.nameRu === name)!;

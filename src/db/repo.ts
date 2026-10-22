@@ -73,10 +73,12 @@ export async function getRate(objectId: string, workTypeId: string): Promise<Rat
 
 export const WORKER_COLORS = ['#f97316', '#0ea5e9', '#22c55e', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#6366f1'];
 
-export async function addWorker(name: string, specialty?: string, phone?: string): Promise<Worker> {
+export async function addWorker(
+  name: string, specialty?: string, phone?: string, headcount?: number,
+): Promise<Worker> {
   const count = await db.workers.count();
   const worker: Worker = {
-    id: uid(), name, specialty, phone,
+    id: uid(), name, specialty, phone, headcount,
     color: WORKER_COLORS[count % WORKER_COLORS.length],
     createdAt: nowIso(),
   };

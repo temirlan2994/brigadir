@@ -71,6 +71,7 @@ export function WorkWizard() {
     }
     reset({
       editId: forEdit ? e.id : undefined,
+      objectId: e.objectId,
       workTypeId: e.workTypeId,
       quantityInput: String(e.quantity).replace('.', ','),
       customerPriceInput: tyiynToSomsInput(e.customerPrice),
@@ -100,6 +101,15 @@ export function WorkWizard() {
         } else {
           reset({ date: todayStr() });
         }
+      } else if (
+        step !== 0 && draft.workTypeId !== '' && !draft.editId
+        && draft.objectId === activeObject?.id
+      ) {
+        // Процесс убили посреди ввода (камера, звонок): черновик пережил
+        // перезапуск в localStorage — продолжаем с того же шага. Черновик правки
+        // или чужого объекта не восстанавливаем, чтобы не записать не туда.
+        // Запись входа в историю была на step шагов раньше текущей
+        entryIdxRef.current = Math.max(0, historyIdx() - step);
       } else {
         // Кто работал по умолчанию: сегодняшняя перекличка (читаем напрямую,
         // чтобы не поймать устаревшее значение хука), иначе участники прошлой записи
@@ -109,6 +119,7 @@ export function WorkWizard() {
         if (cancelled) return;
         const fromAttendance = att?.workerIds ?? [];
         reset({
+          objectId: activeObject?.id ?? '',
           date: todayStr(),
           workerIds: fromAttendance.length > 0 ? fromAttendance : (lastEntry ? lastEntry.shares.map((s) => s.workerId) : []),
         });
@@ -121,7 +132,10 @@ export function WorkWizard() {
   }, [entriesRaw, objectsRaw, activeObject, ready]);
 
   const workType = workTypes.find((w) => w.id === draft.workTypeId);
-  const selectedWorkers = workers.filter((w) => draft.workerIds.includes(w.id));
+  // Архивный бригадир остаётся в долях только при правке старой записи
+  const selectedWorkers = workers.filter(
+    (w) => draft.workerIds.includes(w.id) && (!w.archivedAt || Boolean(editId)),
+  );
 
   // Фокус нампада всегда соответствует текущему шагу
   useEffect(() => {
@@ -184,9 +198,12 @@ export function WorkWizard() {
   // Правка живёт в объекте самой записи, даже если он уже закрыт
   const targetObjectId = isEdit ? editEntry!.objectId : activeObject?.id;
   const canSave = quantity > 0 && draft.workerIds.length > 0 && !manualInvalid && !!workType && !!targetObjectId;
+  const savingRef = useRef(false);
 
   async function save() {
-    if (!canSave || !workType || !targetObjectId) return;
+    if (!canSave || !workType || !targetObjectId || savingRef.current) return;
+    savingRef.current = true;
+    try {
     let note = draft.note.trim();
     if (draft.areaMode) {
       const dims = `${draft.lengthInput}×${draft.heightInput}${draft.openingInputs.length ? ` − ${draft.openingInputs.join(' − ')}` : ''} м²`;
@@ -231,6 +248,11 @@ export function WorkWizard() {
     if (idx >= delta) navigate(-delta);
     else navigate('/', { replace: true });
     toast.show(t('common.saved'), () => hardDelete('workEntries', saved.id));
+    // Черновик записан — очищаем, чтобы не всплыл при следующем входе
+    reset();
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   const favorites = workTypes.filter((w) => w.isFavorite && !w.archivedAt);
@@ -422,7 +444,10 @@ export function WorkWizard() {
                   onClick={() => toggleWorker(w.id)}
                 >
                   <WorkerCircle worker={w} size={40} />
-                  <span className="truncate text-[16px]">{w.name}</span>
+                  <span className="min-w-0 text-left">
+                    <span className="block truncate text-[16px] font-semibold">{w.name}</span>
+                    {w.headcount ? <span className="block text-[12px] font-medium text-slate-500">{t('workers.headcountShort', { n: w.headcount })}</span> : null}
+                  </span>
                 </button>
               );
             })}
@@ -579,6 +604,11 @@ export function WorkWizard() {
           />
 
           <div className="mt-auto">
+            {manualInvalid && (
+              <p className="pb-2 text-center text-[15px] font-semibold text-money-out">
+                {t('wizard.remainder', { sum: formatMoney(manualRemainder) })}
+              </p>
+            )}
             <BigButton label={t('common.save')} disabled={!canSave} onClick={() => void save()} testId="save-work" />
           </div>
         </div>

@@ -45,13 +45,36 @@ export function customerReportText(object: SiteObject, entries: WorkEntry[], wor
   return lines.join('\n');
 }
 
+// Акт текстом — для телефона, где печати нет
+export function actText(
+  object: SiteObject,
+  rows: { name: string; unit: string; qty: number; price: number; total: number }[],
+  total: number,
+  formatQty: (n: number) => string,
+  formatExact: (n: number) => string,
+): string {
+  const lines: string[] = [ru('act.title'), `${ru('act.object')}: ${object.name}`];
+  if (object.customerName) lines.push(`${ru('act.customer')}: ${object.customerName}`);
+  lines.push('');
+  for (const r of rows) {
+    lines.push(`${r.name} — ${formatQty(r.qty)} ${r.unit} × ${formatExact(r.price)} = ${formatExact(r.total)}`);
+  }
+  lines.push('');
+  lines.push(`${ru('act.total')}: ${formatExact(total)}`);
+  return lines.join('\n');
+}
+
 // Открыть WhatsApp с текстом, если есть номер; иначе — скопировать
-export async function sendText(phone: string | undefined, text: string): Promise<'whatsapp' | 'copied'> {
+export async function sendText(phone: string | undefined, text: string): Promise<'whatsapp' | 'copied' | 'failed'> {
   const digits = (phone ?? '').replace(/\D/g, '');
   if (digits) {
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank');
     return 'whatsapp';
   }
-  await navigator.clipboard.writeText(text);
-  return 'copied';
+  try {
+    await navigator.clipboard.writeText(text);
+    return 'copied';
+  } catch {
+    return 'failed';
+  }
 }

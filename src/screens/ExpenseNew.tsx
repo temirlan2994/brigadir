@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '../i18n';
 import { useActiveObject } from '../lib/hooks';
@@ -30,15 +30,22 @@ export function ExpenseNew() {
   const [note, setNote] = useState('');
   const [photoIds, setPhotoIds] = useState<string[]>([]);
 
+  const savingRef = useRef(false);
+
   async function save() {
     const tyiyn = somsToTyiyn(amount);
-    if (!category || tyiyn <= 0 || !activeObject) return;
-    const row = await addExpense({
-      objectId: activeObject.id, date, category, amount: tyiyn,
-      paidBy, note: note.trim() || undefined, photoIds,
-    });
-    navigate(-1);
-    toast.show(t('common.saved'), () => hardDelete('expenses', row.id));
+    if (!category || tyiyn <= 0 || !activeObject || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      const row = await addExpense({
+        objectId: activeObject.id, date, category, amount: tyiyn,
+        paidBy, note: note.trim() || undefined, photoIds,
+      });
+      navigate(-1);
+      toast.show(t('common.saved'), () => hardDelete('expenses', row.id));
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   if (!category) {

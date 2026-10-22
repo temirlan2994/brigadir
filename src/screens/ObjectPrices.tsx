@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useT, useLangStore } from '../i18n';
@@ -25,21 +25,35 @@ export function ObjectPrices() {
   const [sheet, setSheet] = useState<{ title: string; initial: string; save: (v: string) => void } | null>(null);
   const [form, setForm] = useState<{ name: string; customerName: string; customerPhone: string; paymentTerms: string } | null>(null);
 
+  // Поля заказчика сохраняются сами через секунду после правки,
+  // а при уходе с экрана — сразу: системный «Назад» не теряет ввод
+  const pendingRef = useRef<typeof form>(null);
+  function persistForm(f: NonNullable<typeof form>) {
+    pendingRef.current = null;
+    void updateObject(id, {
+      name: f.name.trim() || o?.name,
+      customerName: f.customerName.trim() || undefined,
+      customerPhone: f.customerPhone.trim() || undefined,
+      paymentTerms: f.paymentTerms.trim() || undefined,
+    });
+  }
+  useEffect(() => {
+    if (!form) return;
+    pendingRef.current = form;
+    const timer = setTimeout(() => persistForm(form), 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
+  useEffect(() => () => {
+    if (pendingRef.current) persistForm(pendingRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!o) return <ScreenHeader title="" />;
   const f = form ?? { name: o.name, customerName: o.customerName ?? '', customerPhone: o.customerPhone ?? '', paymentTerms: o.paymentTerms ?? '' };
 
   function saveField<K extends keyof typeof f>(key: K, value: string) {
     setForm({ ...f, [key]: value });
-  }
-  async function persist() {
-    if (!form) return;
-    await updateObject(id, {
-      name: form.name.trim() || o!.name,
-      customerName: form.customerName.trim() || undefined,
-      customerPhone: form.customerPhone.trim() || undefined,
-      paymentTerms: form.paymentTerms.trim() || undefined,
-    });
-    setForm(null);
   }
 
   const rateOf = (workTypeId: string) => rates.find((r) => r.workTypeId === workTypeId);
@@ -72,7 +86,6 @@ export function ObjectPrices() {
           <TextField label={t('newObject.customer')} value={f.customerName} onChange={(v) => saveField('customerName', v)} />
           <TextField label={t('newObject.phone')} value={f.customerPhone} onChange={(v) => saveField('customerPhone', v)} inputMode="tel" />
           <TextField label={t('newObject.terms')} value={f.paymentTerms} onChange={(v) => saveField('paymentTerms', v)} />
-          {form && <BigButton label={t('common.save')} tone="dark" onClick={() => void persist()} />}
         </Card>
 
         <SectionTitle>{t('prices.agreed')}</SectionTitle>

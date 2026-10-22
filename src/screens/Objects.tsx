@@ -74,7 +74,7 @@ export function Objects() {
         {closed.map((o) => {
           const s = stats(o);
           return (
-            <Card key={o.id} onClick={() => navigate(`/objects/${o.id}/result`)} className="opacity-80">
+            <Card key={o.id} onClick={() => navigate(`/objects/${o.id}`)} testId={`object-${o.name}`} className="opacity-80">
               <span className="flex items-center justify-between gap-2">
                 <span className="min-w-0">
                   <span className="block truncate text-[18px] font-extrabold">{o.name}</span>

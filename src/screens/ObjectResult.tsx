@@ -44,6 +44,7 @@ export function ObjectResult() {
   async function report() {
     const res = await sendText(o!.customerPhone, customerReportText(o!, s.active, workTypes));
     if (res === 'copied') toast.show(t('common.copied'));
+              else if (res === 'failed') toast.show(t('common.copyFailed'));
   }
 
   return (
