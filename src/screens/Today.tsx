@@ -31,7 +31,8 @@ export function Today() {
   const evening = new Date().getHours() >= 18;
   const nothingToday = evening && sum.todayEntries.length === 0;
 
-  if (objects.length === 0) {
+  // Нет ни одного открытого объекта (первый запуск или все закрыты) — начинаем с объекта
+  if (objects.length === 0 || !sum.activeObject) {
     return (
       <div className="flex min-h-screen flex-col px-4">
         <div className="flex items-center justify-between py-4">
@@ -41,15 +42,19 @@ export function Today() {
           </button>
         </div>
         <div className="mt-10 flex flex-col gap-4">
-          <p className="text-[24px] font-extrabold leading-snug">{t('welcome.title')}</p>
-          <p className="text-[16px] leading-relaxed text-slate-600">{t('welcome.text')}</p>
+          <p className="text-[24px] font-extrabold leading-snug">{objects.length === 0 ? t('welcome.title') : t('welcome.allClosed')}</p>
+          <p className="text-[16px] leading-relaxed text-slate-600">{objects.length === 0 ? t('welcome.text') : t('welcome.allClosedText')}</p>
           <BigButton label={t('welcome.newObject')} onClick={() => navigate('/objects/new')} testId="start-new-object" />
-          <BigButton
-            label={t('welcome.demo')}
-            tone="neutral"
-            testId="load-demo"
-            onClick={() => void loadDemo().then(() => toast.show(t('common.saved')))}
-          />
+          {objects.length === 0 ? (
+            <BigButton
+              label={t('welcome.demo')}
+              tone="neutral"
+              testId="load-demo"
+              onClick={() => void loadDemo().then(() => toast.show(t('common.saved')))}
+            />
+          ) : (
+            <BigButton label={t('nav.objects')} tone="neutral" onClick={() => navigate('/objects')} />
+          )}
         </div>
       </div>
     );
@@ -87,16 +92,16 @@ export function Today() {
         {/* Главное число: свободно ли на зарплату */}
         <DarkCard tone={sum.free < 0 ? 'red' : 'dark'}>
           <button className="w-full text-left" onClick={() => navigate('/cash')} data-testid="free-cash">
-            <span className="text-[14px] font-medium text-white/65">{t('today.freeForPayroll')}</span>
-            <span className="mt-1 flex items-center justify-between">
-              <span className="text-[40px] font-black leading-none tracking-tight">
-                {formatMoney(sum.free)}
-              </span>
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-[14px] font-medium text-white/65">{t('today.freeForPayroll')}</span>
               <Pill tone={sum.free < 0 ? 'red' : 'yellow'}>{sum.free < 0 ? t('today.notEnough') : t('today.enough')}</Pill>
             </span>
-            <span className="mt-3 flex justify-between text-[14px]">
-              <span><span className="text-white/65">{t('today.inCash')} </span>{formatMoney(sum.cash)}</span>
-              <span data-testid="owed-to-workers"><span className="text-white/65">{t('today.oweTeam')} </span>{formatMoney(sum.owed)}</span>
+            <span className="mt-1 block whitespace-nowrap text-[38px] font-black leading-none tracking-tight">
+              {formatMoney(sum.free)}
+            </span>
+            <span className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-[14px]">
+              <span className="whitespace-nowrap"><span className="text-white/65">{t('today.inCash')} </span>{formatMoney(sum.cash)}</span>
+              <span className="whitespace-nowrap" data-testid="owed-to-workers"><span className="text-white/65">{t('today.oweTeam')} </span>{formatMoney(sum.owed)}</span>
             </span>
           </button>
         </DarkCard>
@@ -106,13 +111,13 @@ export function Today() {
             <span className="block text-[14px] font-medium text-slate-500">
               {sum.advanceLeft > 0 ? t('today.advanceLeft') : t('today.customerOwes')}
             </span>
-            <span className={`block text-[22px] font-extrabold ${sum.advanceLeft > 0 ? 'text-ink' : 'text-money-in'}`}>
+            <span className={`block whitespace-nowrap text-[20px] font-extrabold ${sum.advanceLeft > 0 ? 'text-ink' : 'text-money-in'}`}>
               {formatMoney(sum.advanceLeft > 0 ? sum.advanceLeft : sum.owedToMe)}
             </span>
           </Card>
           <Card className="!p-3.5" onClick={() => sum.activeObject && navigate(`/objects/${sum.activeObject.id}/handover`)} testId="not-handed">
             <span className="block text-[14px] font-medium text-slate-500">{t('today.notHanded')}</span>
-            <span className="block text-[22px] font-extrabold">{formatMoney(sum.notAccepted)}</span>
+            <span className="block whitespace-nowrap text-[20px] font-extrabold">{formatMoney(sum.notAccepted)}</span>
           </Card>
         </div>
 

@@ -71,6 +71,10 @@
   "objects.owed": "Карыз",
   "objects.closedOn": "{date} жабылды",
   "objects.earned": "{sum} таптым",
+  "objects.lost": "{sum} минуста",
+  "welcome.allClosed": "Бардык объекттер жабык",
+  "welcome.allClosedText": "Жумуш жазуу үчүн ачык объект керек. Жаңысын алсаң — түзүп кой.",
+  "settings.archivedMark": "архивде",
   "objects.empty": "Объекттер азырынча жок",
   "objects.makeCurrent": "Учурдагы кылуу",
 

@@ -51,9 +51,18 @@ export function Handover() {
 
   async function acceptSelected() {
     const ids = [...checked];
+    // Запоминаем, что было принято частично, чтобы «Отменить» вернуло именно это
+    const before = pending.filter((e) => ids.includes(e.id)).map((e) => ({
+      id: e.id, partialQty: e.accepted ? e.acceptedQuantity : undefined, note: e.acceptNote,
+    }));
     await acceptWorkEntries(ids);
     setChecked(new Set());
-    toast.show(t('common.saved'), async () => { for (const x of ids) await unacceptWorkEntry(x); });
+    toast.show(t('common.saved'), async () => {
+      for (const b of before) {
+        if (b.partialQty !== undefined) await acceptWorkEntryPartially(b.id, b.partialQty, b.note);
+        else await unacceptWorkEntry(b.id);
+      }
+    });
   }
 
   async function report() {
@@ -106,10 +115,10 @@ export function Handover() {
       <ScreenHeader title={t('object.handover')} sub={s.object?.name} right={<CustomerModeButton />} />
       <div className="flex flex-1 flex-col gap-3 px-4">
         <div className="flex gap-2">
-          <button className={`min-h-[40px] rounded-full px-4 text-[14px] font-bold ${tab === 'pending' ? 'bg-accent' : 'bg-[#ece8df] text-slate-600'}`} onClick={() => setTab('pending')}>
+          <button className={`min-h-[44px] rounded-full px-4 text-[14px] font-bold ${tab === 'pending' ? 'bg-accent' : 'bg-[#ece8df] text-slate-600'}`} onClick={() => setTab('pending')}>
             {t('handover.pending')} · {pending.length}
           </button>
-          <button className={`min-h-[40px] rounded-full px-4 text-[14px] font-bold ${tab === 'accepted' ? 'bg-accent' : 'bg-[#ece8df] text-slate-600'}`} onClick={() => setTab('accepted')} data-testid="tab-accepted">
+          <button className={`min-h-[44px] rounded-full px-4 text-[14px] font-bold ${tab === 'accepted' ? 'bg-accent' : 'bg-[#ece8df] text-slate-600'}`} onClick={() => setTab('accepted')} data-testid="tab-accepted">
             {t('handover.accepted')} · {accepted.length}
           </button>
         </div>

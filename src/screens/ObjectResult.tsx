@@ -62,10 +62,9 @@ export function ObjectResult() {
 
         <Card>
           <KvRow label={closed ? t('object.customerPaid') : t('object.doneAll')} value={formatMoney(closed ? s.received : s.done)} tone="in" />
-          {s.withheld > 0 && <KvRow label={t('object.withheld')} value={`−${formatMoney(s.withheld)}`} tone="out" />}
           <KvRow label={t('result.team')} value={`−${formatMoney(s.workersSum)}`} tone="out" />
           <KvRow label={t('result.expenses')} value={`−${formatMoney(s.contractorExp)}`} tone="out" />
-          {s.tax > 0 && <KvRow label={t('profit.tax')} value={`−${formatMoney(s.tax)}`} tone="out" />}
+          {(closed ? s.taxFact : s.tax) > 0 && <KvRow label={t('profit.tax')} value={`−${formatMoney(closed ? s.taxFact : s.tax)}`} tone="out" />}
           <KvRow label={t('result.left')} value={formatMoney(result)} strong tone={result >= 0 ? 'in' : 'out'} />
           {!closed && s.owedToMe > 0 && <KvRow label={t('object.customerOwes')} value={formatMoney(s.owedToMe)} />}
         </Card>
@@ -86,7 +85,7 @@ export function ObjectResult() {
           <BigButton label={t('result.send')} tone="neutral" icon={<Send size={20} aria-hidden="true" />} onClick={() => void report()} />
         </div>
         {!closed && (
-          <BigButton label={t('object.closeObject')} tone="dark" onClick={() => navigate(`/objects/${id}/close`)} testId="to-close" />
+          <BigButton label={t('object.closeObject')} tone="dark" onClick={() => navigate(`/objects/${id}/close`, { state: { fromResult: true } })} testId="to-close" />
         )}
       </div>
     </div>

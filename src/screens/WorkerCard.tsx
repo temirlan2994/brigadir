@@ -100,7 +100,7 @@ export function WorkerCard() {
         title={worker.name}
         sub={[worker.specialty, worker.phone].filter(Boolean).join(' · ') || undefined}
         right={
-          <button className="min-h-[40px] rounded-full bg-white px-3 text-[13px] font-bold shadow-card" onClick={() => {
+          <button className="min-h-[44px] rounded-full bg-white px-3 text-[13px] font-bold shadow-card" onClick={() => {
             setForm({ name: worker.name, specialty: worker.specialty ?? '', phone: worker.phone ?? '' });
             setEditing(true);
           }}>
@@ -115,10 +115,10 @@ export function WorkerCard() {
           <span className={`block text-[40px] font-black leading-none tracking-tight ${balance > 0 ? 'text-money-out' : ''}`} data-testid="worker-balance">
             {formatMoney(Math.abs(balance))}
           </span>
-          <span className="mt-3 flex justify-between">
-            <span><span className="block text-[13px] font-medium text-slate-500">{t('workers.earned')}</span><span className="block text-[18px] font-extrabold">{formatMoney(accrued)}</span></span>
-            <span><span className="block text-[13px] font-medium text-slate-500">{t('workers.got')}</span><span className="block text-[18px] font-extrabold">{formatMoney(paid)}</span></span>
-            <span className="text-right"><span className="block text-[13px] font-medium text-slate-500">{t('workers.withheld')}</span><span className="block text-[18px] font-extrabold">{formatMoney(withheld)}</span></span>
+          <span className="mt-3 grid grid-cols-3 gap-2">
+            <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('workers.earned')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(accrued)}</span></span>
+            <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('workers.got')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(paid)}</span></span>
+            <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('workers.withheld')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(withheld)}</span></span>
           </span>
         </Card>
 

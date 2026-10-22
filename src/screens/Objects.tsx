@@ -24,17 +24,19 @@ export function Objects() {
   const expenses = useExpenses();
 
   const all = activeEntries(entries);
-  const open = objects.filter((o) => !o.closedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const closed = objects.filter((o) => o.closedAt).sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? ''));
+  const open = objects.filter((o) => !o.closedAt && !o.archivedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const closed = objects.filter((o) => o.closedAt || o.archivedAt).sort((a, b) => (b.closedAt ?? b.archivedAt ?? '').localeCompare(a.closedAt ?? a.archivedAt ?? ''));
 
   function stats(o: { id: string; closedAt?: string }) {
     const act = byObject(all, o.id);
     const rec = notDeleted(byObject(receipts, o.id));
     const adj = notDeleted(byObject(adjustments, o.id));
     const done = doneTotal(act);
-    const tax = taxAmount(settings.taxMode, settings.taxPercent, settings.taxFixedMonthly, done, firstEntryDate(act), todayStr());
-    // Факт по деньгам: что заплатил заказчик минус бригада, расходы и налог
-    const result = receiptsTotal(rec) - workersTotalSum(act) - contractorExpensesTotal(byObject(expenses, o.id)) - tax;
+    const received = receiptsTotal(rec);
+    // У закрытого объекта налог заморожен датой закрытия и считается от полученных денег
+    const until = o.closedAt ? o.closedAt.slice(0, 10) : todayStr();
+    const tax = taxAmount(settings.taxMode, settings.taxPercent, settings.taxFixedMonthly, received, firstEntryDate(act), until);
+    const result = received - workersTotalSum(act) - contractorExpensesTotal(byObject(expenses, o.id)) - tax;
     return {
       done, accepted: acceptedTotal(act), owed: customerOwes(act, rec, adj),
       stage: objectStage(o, act, rec), result,
@@ -60,10 +62,10 @@ export function Objects() {
                 {isActive && <Pill tone="yellow">{t('objects.current')}</Pill>}
               </span>
               <span className="mt-3 block"><StageStrip stage={s.stage} /></span>
-              <span className="mt-3 flex justify-between">
-                <span><span className="block text-[13px] font-medium text-slate-500">{t('objects.done')}</span><span className="block text-[18px] font-extrabold">{formatMoney(s.done)}</span></span>
-                <span><span className="block text-[13px] font-medium text-slate-500">{t('objects.accepted')}</span><span className="block text-[18px] font-extrabold">{formatMoney(s.accepted)}</span></span>
-                <span className="text-right"><span className="block text-[13px] font-medium text-slate-500">{t('objects.owed')}</span><span className={`block text-[18px] font-extrabold ${s.owed > 0 ? 'text-money-in' : ''}`}>{formatMoney(Math.max(0, s.owed))}</span></span>
+              <span className="mt-3 grid grid-cols-3 gap-2">
+                <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('objects.done')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(s.done)}</span></span>
+                <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('objects.accepted')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(s.accepted)}</span></span>
+                <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('objects.owed')}</span><span className={`block truncate text-[15px] font-extrabold ${s.owed > 0 ? 'text-money-in' : ''}`}>{formatMoney(Math.max(0, s.owed))}</span></span>
               </span>
             </Card>
           );
@@ -76,9 +78,15 @@ export function Objects() {
               <span className="flex items-center justify-between gap-2">
                 <span className="min-w-0">
                   <span className="block truncate text-[18px] font-extrabold">{o.name}</span>
-                  <span className="block text-[13px] font-medium text-slate-500">{t('objects.closedOn', { date: formatDateShort((o.closedAt ?? '').slice(0, 10), lang) })}</span>
+                  <span className="block text-[13px] font-medium text-slate-500">
+                    {o.closedAt ? t('objects.closedOn', { date: formatDateShort(o.closedAt.slice(0, 10), lang) }) : t('settings.archivedMark')}
+                  </span>
                 </span>
-                <Pill tone={s.result >= 0 ? 'green' : 'red'}>{t('objects.earned', { sum: formatMoney(s.result) })}</Pill>
+                {o.closedAt && (
+                  <Pill tone={s.result >= 0 ? 'green' : 'red'}>
+                    {s.result >= 0 ? t('objects.earned', { sum: formatMoney(s.result) }) : t('objects.lost', { sum: formatMoney(-s.result) })}
+                  </Pill>
+                )}
               </span>
             </Card>
           );
@@ -89,7 +97,7 @@ export function Objects() {
         )}
       </div>
 
-      <div className="sticky bottom-[88px] mt-auto pt-4">
+      <div className="sticky bottom-[calc(88px+env(safe-area-inset-bottom))] mt-auto pt-4">
         <BigButton label={t('objects.new')} icon={<Plus size={24} strokeWidth={2.6} aria-hidden="true" />} onClick={() => navigate('/objects/new')} testId="new-object" />
       </div>
     </div>

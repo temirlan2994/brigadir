@@ -11,7 +11,7 @@ export function CustomerModeButton() {
     <button
       data-testid="customer-mode"
       onClick={toggle}
-      className={`flex min-h-[40px] max-w-[150px] items-center gap-1.5 rounded-full px-3 text-left text-[12px] font-bold leading-tight ${
+      className={`flex min-h-[44px] max-w-[150px] items-center gap-1.5 rounded-full px-3 text-left text-[12px] font-bold leading-tight ${
         customerMode ? 'bg-dark text-white' : 'bg-white text-ink shadow-card'
       }`}
     >

@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Minus, Plus } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
 import { db } from '../db/db';
-import { useActiveObject, useWorkers, useWorkTypes, useAttendance } from '../lib/hooks';
+import { useActiveObject, useWorkers, useWorkTypes } from '../lib/hooks';
 import { useDraft } from '../state/draft';
 import { activeEntries, calcArea, lineTotals, splitShares } from '../core/calc';
 import { formatMoney, parseDecimal, somsToTyiyn, tyiynToSomsInput, formatQuantity } from '../core/format';
@@ -45,7 +45,7 @@ export function WorkWizard() {
   const activeObject = useActiveObject();
   const entriesRaw = useLiveQuery(() => db.workEntries.toArray(), []);
   const entries = useMemo(() => entriesRaw ?? [], [entriesRaw]);
-  const attendanceToday = useAttendance(activeObject?.id, todayStr());
+  const objectsRaw = useLiveQuery(() => db.objects.toArray(), []);
   const [showAll, setShowAll] = useState(false);
   const [focus, setFocus] = useState('');
   const [newWorkerName, setNewWorkerName] = useState<string | null>(null);
@@ -88,28 +88,37 @@ export function WorkWizard() {
   // Инициализация после загрузки записей (иначе гонка: правка и «участники
   // прошлой записи» подставлялись бы из пустого списка)
   useEffect(() => {
-    if (ready || entriesRaw === undefined) return;
-    entryIdxRef.current = historyIdx();
-    if (editId) {
-      const e = entriesRaw.find((x) => x.id === editId);
-      if (e) {
-        prefillFromEntry(e, true);
-        navigate('?step=3', { replace: true, state: location.state });
+    if (ready || entriesRaw === undefined || objectsRaw === undefined) return;
+    let cancelled = false;
+    void (async () => {
+      entryIdxRef.current = historyIdx();
+      if (editId) {
+        const e = entriesRaw.find((x) => x.id === editId);
+        if (e) {
+          prefillFromEntry(e, true);
+          navigate('?step=3', { replace: true, state: location.state });
+        } else {
+          reset({ date: todayStr() });
+        }
       } else {
-        reset({ date: todayStr() });
+        // Кто работал по умолчанию: сегодняшняя перекличка (читаем напрямую,
+        // чтобы не поймать устаревшее значение хука), иначе участники прошлой записи
+        const att = activeObject
+          ? await db.attendance.where({ objectId: activeObject.id, date: todayStr() }).first()
+          : undefined;
+        if (cancelled) return;
+        const fromAttendance = att?.workerIds ?? [];
+        reset({
+          date: todayStr(),
+          workerIds: fromAttendance.length > 0 ? fromAttendance : (lastEntry ? lastEntry.shares.map((s) => s.workerId) : []),
+        });
+        if (step !== 0) navigate('?step=0', { replace: true });
       }
-    } else {
-      // Кто работал по умолчанию: сегодняшняя перекличка, иначе участники прошлой записи
-      const fromAttendance = attendanceToday?.workerIds ?? [];
-      reset({
-        date: todayStr(),
-        workerIds: fromAttendance.length > 0 ? fromAttendance : (lastEntry ? lastEntry.shares.map((s) => s.workerId) : []),
-      });
-      if (step !== 0) navigate('?step=0', { replace: true });
-    }
-    setReady(true);
+      setReady(true);
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entriesRaw, ready]);
+  }, [entriesRaw, objectsRaw, activeObject, ready]);
 
   const workType = workTypes.find((w) => w.id === draft.workTypeId);
   const selectedWorkers = workers.filter((w) => draft.workerIds.includes(w.id));
@@ -196,6 +205,17 @@ export function WorkWizard() {
       photoIds: draft.photoIds,
       accepted: isEdit ? (editEntry?.accepted ?? false) : false,
       acceptedAt: isEdit ? editEntry?.acceptedAt : undefined,
+      // Частичная приёмка переезжает в новую версию; принятый объём не больше нового
+      ...(isEdit && editEntry?.acceptedQuantity !== undefined
+        ? (() => {
+          const acceptedQuantity = Math.min(editEntry.acceptedQuantity, quantity);
+          return {
+            acceptedQuantity,
+            acceptedTotal: lineTotals(acceptedQuantity, customerPrice, 0).customerTotal,
+            acceptNote: editEntry.acceptNote,
+          };
+        })()
+        : {}),
     };
     const saved = isEdit
       ? await reviseWorkEntry(editId!, data)
@@ -394,8 +414,8 @@ export function WorkWizard() {
                 <button
                   key={w.id}
                   data-testid={`worker-${w.name}`}
-                  className={`flex min-h-[64px] items-center gap-2 rounded-2xl border px-3 ${
-                    selected ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-white'
+                  className={`flex min-h-[64px] items-center gap-2 rounded-2xl px-3 shadow-card ${
+                    selected ? 'bg-amber-50 ring-2 ring-accent' : 'bg-white'
                   }`}
                   onClick={() => toggleWorker(w.id)}
                 >

@@ -15,10 +15,12 @@ export function useObjects(): SiteObject[] {
   return useLiveQuery(() => db.objects.toArray(), []) ?? [];
 }
 
+// Текущий объект — только открытый: закрытый или архивный не может принимать записи
 export function useActiveObject(): SiteObject | undefined {
   const settings = useSettings();
   const objects = useObjects();
-  return objects.find((o) => o.id === settings.activeObjectId) ?? objects.find((o) => !o.archivedAt);
+  const open = objects.filter((o) => !o.closedAt && !o.archivedAt);
+  return open.find((o) => o.id === settings.activeObjectId) ?? open[0];
 }
 
 export function useWorkers(): Worker[] {
@@ -54,10 +56,10 @@ export function useCashMoves(): CashMove[] {
   return useLiveQuery(() => db.cashMoves.toArray(), []) ?? [];
 }
 
-// Кто вышел на объект в этот день
-export function useAttendance(objectId: string | undefined, date: string): Attendance | undefined {
+// Кто вышел на объект в этот день: undefined — ещё грузится, null — записи нет
+export function useAttendance(objectId: string | undefined, date: string): Attendance | null | undefined {
   return useLiveQuery(
-    async () => (objectId ? await db.attendance.where({ objectId, date }).first() : undefined),
+    async () => (objectId ? (await db.attendance.where({ objectId, date }).first()) ?? null : null),
     [objectId, date],
   );
 }

@@ -6,7 +6,7 @@ export function Toast() {
   const { message, undo, hide } = useToast();
   if (!message) return null;
   return (
-    <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2">
+    <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-1/2 z-50 w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2">
       <div className="flex items-center justify-between rounded-[18px] bg-dark px-5 py-4 text-white shadow-lg">
         <span className="text-[17px] font-semibold">{message}</span>
         {undo && (

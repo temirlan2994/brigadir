@@ -99,6 +99,50 @@ test('перезагрузка страницы сохраняет все дан
   await expect(page.getByTestId('owed-to-workers')).toContainText('54 000 сом');
 });
 
+test('правка записи сохраняет частичную приёмку', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await recordWelding(page, ['Азамат']);
+  await page.getByTestId('not-handed').click();
+  await page.locator('[data-testid^="partial-"]').first().click();
+  for (let i = 0; i < 6; i++) await page.locator('[data-key="erase"]').last().click();
+  await typeNum(page, '1000');
+  await page.getByRole('button', { name: 'Готово' }).click();
+  await expect(page.getByText('принято 1 000 из 1 200')).toBeVisible();
+  // Открыть запись → Изменить → сохранить без изменений
+  await page.getByRole('button', { name: /Сварка · 1 200 кг/ }).first().click();
+  await page.getByTestId('edit-entry').click();
+  await page.getByTestId('save-work').click();
+  await page.goto('/#/');
+  await expect(page.getByTestId('owed-to-me')).toContainText('65 000 сом');
+  await expect(page.getByTestId('not-handed')).toContainText('13 000 сом');
+});
+
+test('после закрытия единственного объекта записывать некуда', async ({ page }) => {
+  await startWithObject(page, ['Азамат']);
+  await page.goto('/#/objects');
+  await page.getByTestId('object-БЦ «Триумф»').click();
+  await page.getByTestId('menu-result').click();
+  await page.getByTestId('to-close').click();
+  await page.getByTestId('close-confirm').click();
+  await page.goto('/#/');
+  await expect(page.getByText('Все объекты закрыты')).toBeVisible();
+  await expect(page.getByTestId('btn-work')).toHaveCount(0);
+});
+
+test('перекличка подставляет бригаду в запись работы', async ({ page }) => {
+  await startWithObject(page, ['Азамат', 'Нурлан', 'Бакыт']);
+  await page.getByTestId('attendance-row').click();
+  await page.getByTestId('att-Бакыт').click();
+  await page.getByTestId('save-attendance').click();
+  await expect(page.getByTestId('attendance-row')).toContainText('Бакыт');
+  await page.getByTestId('btn-work').click();
+  await page.getByTestId('wt-Сварка').click();
+  await typeNum(page, '100');
+  await page.getByTestId('next-2').click();
+  await expect(page.getByTestId('worker-Бакыт')).toHaveClass(/amber/);
+  await expect(page.getByTestId('worker-Азамат')).not.toHaveClass(/amber/);
+});
+
 test('закрытие объекта показывает итог', async ({ page }) => {
   await startWithObject(page, ['Азамат']);
   await recordWelding(page, ['Азамат']);
@@ -109,5 +153,5 @@ test('закрытие объекта показывает итог', async ({ p
   await page.getByTestId('close-confirm').click();
   await expect(page.getByText('Заработал на объекте')).toBeVisible();
   await page.goto('/#/objects');
-  await expect(page.getByText('закрыт')).toBeVisible();
+  await expect(page.getByText(/закрыт \d/)).toBeVisible();
 });

@@ -85,7 +85,7 @@ export function ExpenseNew() {
           label={t('common.sum')}
           value={amount}
           onChange={setAmount}
-          action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0, testId: 'save-expense' }}
+          action={{ label: t('common.save'), onClick: () => void save(), disabled: somsToTyiyn(amount) <= 0 || !activeObject, testId: 'save-expense' }}
         />
       </div>
     </div>

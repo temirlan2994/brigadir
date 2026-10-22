@@ -75,13 +75,19 @@ export function useObjectSummary(objectId: string | undefined) {
   const owedToMe = customerOwes(active, objReceipts, objAdjustments);
   const workersSum = workersTotalSum(active);
   const contractorExp = contractorExpensesTotal(objExpenses);
+  // У закрытого объекта налог заморожен датой закрытия, а процент берётся от полученных денег
+  const taxUntil = object?.closedAt ? object.closedAt.slice(0, 10) : todayStr();
   const tax = taxAmount(
     settings.taxMode, settings.taxPercent, settings.taxFixedMonthly,
-    done, firstEntryDate(active), todayStr(),
+    done, firstEntryDate(active), taxUntil,
+  );
+  const taxFact = taxAmount(
+    settings.taxMode, settings.taxPercent, settings.taxFixedMonthly,
+    received, firstEntryDate(active), taxUntil,
   );
   const profit = profitForecast(done, workersSum, contractorExp, tax);
   // Факт по деньгам: что заплатил заказчик минус бригада, расходы и налог
-  const profitFact = received - workersSum - contractorExp - tax;
+  const profitFact = received - workersSum - contractorExp - taxFact;
   const stage = object ? objectStage(object, active, objReceipts) : 'taken';
   const unacceptedEntries = active.filter((e) => !e.accepted || (e.acceptedQuantity !== undefined && e.acceptedQuantity < e.quantity));
 
@@ -89,7 +95,7 @@ export function useObjectSummary(objectId: string | undefined) {
     object, settings, active, objReceipts, objAdjustments, objExpenses, payouts,
     done, accepted, notAccepted, received, withheld, owedToMe,
     advanceLeft: customerAdvanceLeft(owedToMe),
-    workersSum, contractorExp, tax, profit, profitFact, stage, unacceptedEntries,
+    workersSum, contractorExp, tax, taxFact, profit, profitFact, stage, unacceptedEntries,
   };
 }
 

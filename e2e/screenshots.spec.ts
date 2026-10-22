@@ -40,6 +40,7 @@ test('скриншоты всех экранов', async ({ page }) => {
     const btn = page.getByTestId(`worker-${name}`);
     if (!(await btn.getAttribute('class'))?.includes('amber')) await btn.click();
   }
+  await expect(page.getByTestId('worker-Азамат')).toHaveClass(/amber/);
   await shot(page, '08-master-3-kto-rabotal');
   await page.getByTestId('next-3').click();
   await shot(page, '09-master-4-prover');

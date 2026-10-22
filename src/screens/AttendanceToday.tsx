@@ -23,14 +23,13 @@ export function AttendanceToday() {
   const [ids, setIds] = useState<string[]>([]);
   const [loadedFor, setLoadedFor] = useState('');
 
-  // Подставляем сохранённое за день, когда оно загрузилось или сменилась дата
+  // Подставляем сохранённое за день, когда запрос за этот день действительно отработал
   useEffect(() => {
-    const key = `${activeObject?.id}:${date}`;
+    if (!activeObject || saved === undefined) return;
+    const key = `${activeObject.id}:${date}`;
     if (loadedFor === key) return;
-    if (saved !== undefined || activeObject) {
-      setIds(saved?.workerIds ?? []);
-      setLoadedFor(key);
-    }
+    setIds(saved?.workerIds ?? []);
+    setLoadedFor(key);
   }, [saved, date, activeObject, loadedFor]);
 
   function toggle(id: string) {
@@ -48,7 +47,7 @@ export function AttendanceToday() {
     <div className="flex min-h-screen flex-col bg-paper pb-6">
       <ScreenHeader title={t('attendance.title')} sub={activeObject?.name} />
       <div className="flex flex-1 flex-col gap-3 px-4">
-        <DatePick value={date} onChange={(d) => { setDate(d); }} />
+        <DatePick value={date} onChange={setDate} />
         <p className="px-1 text-[14px] text-slate-500">{t('attendance.hint', { date: formatDateShort(date, lang) })}</p>
         <div className="flex flex-col gap-2">
           {workers.map((w) => {

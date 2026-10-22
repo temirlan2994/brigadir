@@ -36,7 +36,7 @@ import { ActPrint } from './screens/ActPrint';
 function TabLayout() {
   return (
     <>
-      <div className="pb-24">
+      <div className="pb-[calc(6rem+env(safe-area-inset-bottom))]">
         <Outlet />
       </div>
       <BottomNav />

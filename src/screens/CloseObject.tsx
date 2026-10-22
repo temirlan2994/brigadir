@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Check, AlertTriangle } from 'lucide-react';
 import { useT } from '../i18n';
 import { useObjectSummary, useHomeSummary } from '../lib/summary';
@@ -14,6 +14,7 @@ import { Card } from '../components/ui';
 export function CloseObject() {
   const t = useT();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const { id = '' } = useParams();
   const s = useObjectSummary(id);
@@ -30,13 +31,19 @@ export function CloseObject() {
   const allOk = checks.every((c) => c.ok);
 
   async function close() {
+    const wasActive = home.settings.activeObjectId === id;
     await updateObject(id, { closedAt: nowIso() });
-    if (home.settings.activeObjectId === id) {
+    if (wasActive) {
       const next = objects.find((x) => x.id !== id && !x.closedAt && !x.archivedAt);
       await updateSettings({ activeObjectId: next?.id ?? '' });
     }
-    toast.show(t('close.done'), () => updateObject(id, { closedAt: undefined }));
-    navigate(`/objects/${id}/result`, { replace: true });
+    toast.show(t('close.done'), async () => {
+      await updateObject(id, { closedAt: undefined });
+      if (wasActive) await updateSettings({ activeObjectId: id });
+    });
+    // Пришли с экрана итога — просто возвращаемся на него, чтобы не плодить записи в истории
+    if ((location.state as { fromResult?: boolean } | null)?.fromResult) navigate(-1);
+    else navigate(`/objects/${id}/result`, { replace: true });
   }
 
   return (

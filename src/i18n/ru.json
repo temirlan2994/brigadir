@@ -71,6 +71,10 @@
   "objects.owed": "Должны",
   "objects.closedOn": "закрыт {date}",
   "objects.earned": "заработал {sum}",
+  "objects.lost": "в минусе на {sum}",
+  "welcome.allClosed": "Все объекты закрыты",
+  "welcome.allClosedText": "Чтобы записывать работу, нужен открытый объект. Взял новый — создай его.",
+  "settings.archivedMark": "в архиве",
   "objects.empty": "Объектов пока нет",
   "objects.makeCurrent": "Сделать текущим",
 

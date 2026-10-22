@@ -63,7 +63,7 @@ export function Tag({ kind, label }: { kind: 'work' | 'pay' | 'exp' | 'rec' | 'g
     rec: 'bg-[#e6f4ea] text-money-in',
     grey: 'bg-[#ece8df] text-slate-600',
   }[kind];
-  return <span className={`shrink-0 rounded-lg px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${cls}`}>{label}</span>;
+  return <span className={`shrink-0 rounded-lg px-2 py-0.5 text-[12px] font-extrabold uppercase tracking-wide ${cls}`}>{label}</span>;
 }
 
 // Маленькая плашка-статус
@@ -95,7 +95,7 @@ export function StageStrip({ stage }: { stage: ObjectStage }) {
         return (
           <div key={s} className="flex-1 text-center">
             <div className={`mb-1.5 h-1.5 rounded-full ${state === 'now' ? 'bg-accent' : state === 'done' ? 'bg-slate-400' : 'bg-line'}`} />
-            <span className={`text-[11px] font-bold ${state === 'now' ? 'text-ink' : state === 'done' ? 'text-slate-600' : 'text-slate-400'}`}>
+            <span className={`text-[12px] font-bold ${state === 'now' ? 'text-ink' : state === 'done' ? 'text-slate-600' : 'text-slate-400'}`}>
               {t(`stage.${s}`)}
             </span>
           </div>

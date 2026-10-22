@@ -27,7 +27,7 @@ export function ObjectScreen() {
         title={o.name}
         sub={[o.customerName, o.paymentTerms].filter(Boolean).join(' · ') || undefined}
         right={!isActive && !o.closedAt ? (
-          <button className="min-h-[40px] rounded-full bg-accent px-3 text-[13px] font-bold" onClick={() => void updateSettings({ activeObjectId: o.id })} data-testid="make-active">
+          <button className="min-h-[44px] rounded-full bg-accent px-3 text-[13px] font-bold" onClick={() => void updateSettings({ activeObjectId: o.id })} data-testid="make-active">
             {t('objects.makeCurrent')}
           </button>
         ) : isActive ? <Pill tone="yellow">{t('objects.current')}</Pill> : undefined}
@@ -50,7 +50,15 @@ export function ObjectScreen() {
         <MenuRow icon="clip" title={t('object.handover')} sub={t('object.handoverSub', { n: s.unacceptedEntries.length })} onClick={() => navigate(`/objects/${o.id}/handover`)} testId="menu-handover" />
         <MenuRow icon="sack" title={t('object.customerMoney')} sub={t('object.customerMoneySub', { n: s.objReceipts.length, w: s.objAdjustments.length })} onClick={() => navigate(`/objects/${o.id}/money`)} testId="menu-money" />
         <MenuRow icon="tag" title={t('object.prices')} sub={o.customerName ?? t('newObject.customer')} onClick={() => navigate(`/objects/${o.id}/prices`)} testId="menu-prices" />
-        <MenuRow icon="flag" title={t('object.result')} sub={o.closedAt ? t('object.resultClosed', { sum: formatMoney(s.profitFact) }) : t('object.resultForecast', { sum: formatMoney(s.profit) })} onClick={() => navigate(`/objects/${o.id}/result`)} testId="menu-result" />
+        <MenuRow
+          icon="flag"
+          title={t('object.result')}
+          sub={o.closedAt
+            ? (s.profitFact >= 0 ? t('object.resultClosed', { sum: formatMoney(s.profitFact) }) : t('objects.lost', { sum: formatMoney(-s.profitFact) }))
+            : t('object.resultForecast', { sum: formatMoney(s.profit) })}
+          onClick={() => navigate(`/objects/${o.id}/result`)}
+          testId="menu-result"
+        />
 
         {!o.closedAt && (
           <div className="sticky bottom-0 mt-auto bg-paper pt-3">

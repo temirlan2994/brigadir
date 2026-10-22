@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Plus } from 'lucide-react';
 import { useT, useLangStore } from '../i18n';
 import { useWorkers, useWorkTypes } from '../lib/hooks';
 import { WORK_TYPE_SEED } from '../db/seed';
 import { addObject, addReceipt, addWorker, todayStr, updateSettings, upsertRate } from '../db/repo';
-import { somsToTyiyn } from '../core/format';
+import { formatMoney, somsToTyiyn } from '../core/format';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BigButton } from '../components/BigButton';
 import { NumSheet } from '../components/NumSheet';
@@ -37,6 +37,13 @@ export function NewObjectWizard() {
   const [draftName, setDraftName] = useState('');
   const [sheet, setSheet] = useState<{ title: string; initial: string; save: (v: string) => void } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Запись истории, с которой начался мастер: по ней снимаем все шаги после завершения
+  const entryIdxRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (entryIdxRef.current === null) {
+      entryIdxRef.current = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    }
+  }, []);
 
   // Цены по умолчанию из справочника; популярные виды отмечены заранее
   useEffect(() => {
@@ -72,10 +79,11 @@ export function NewObjectWizard() {
     for (const n of newNames) await addWorker(n);
     if (draftName.trim()) await addWorker(draftName.trim());
     await updateSettings({ activeObjectId: obj.id });
-    // Снимаем все шаги мастера со стека
+    // Снимаем все шаги мастера со стека; если мастер был первой страницей — на «Сегодня»
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-    const delta = Math.min(idx, step + 1);
-    if (delta > 0) navigate(-delta);
+    const entryIdx = entryIdxRef.current ?? 0;
+    const delta = idx - entryIdx + 1;
+    if (entryIdx > 0 && idx >= delta) navigate(-delta);
     else navigate('/', { replace: true });
   }
 
@@ -108,7 +116,7 @@ export function NewObjectWizard() {
               className="flex min-h-[60px] items-center justify-between rounded-[16px] border-[1.5px] border-line bg-white px-3.5 text-left"
               onClick={() => setSheet({ title: t('newObject.advance'), initial: advance, save: setAdvance })}
             >
-              <span><span className="block text-[12px] font-semibold text-slate-500">{t('newObject.advance')}</span><span className="text-[18px] font-semibold">{advance ? `${advance} сом` : t('newObject.noAdvance')}</span></span>
+              <span><span className="block text-[12px] font-semibold text-slate-500">{t('newObject.advance')}</span><span className="text-[18px] font-semibold">{somsToTyiyn(advance) > 0 ? formatMoney(somsToTyiyn(advance)) : t('newObject.noAdvance')}</span></span>
             </button>
             <div className="mt-auto">
               <BigButton label={t('newObject.next2')} disabled={!name.trim()} onClick={() => goStep(1)} testId="obj-next-1" />
@@ -134,7 +142,7 @@ export function NewObjectWizard() {
                     </button>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[16px] font-semibold">{wtLabel(wt, lang)} · {wt.unit}</span>
-                      <span className="block text-[12px] font-medium text-slate-500">{t('newObject.margin', { sum: Math.max(0, Number(p.customer || 0) - Number(p.worker || 0)) })}</span>
+                      <span className="block text-[12px] font-medium text-slate-500">{t('newObject.margin', { sum: formatMoney(Math.max(0, somsToTyiyn(p.customer) - somsToTyiyn(p.worker))) })}</span>
                     </span>
                     <button className="rounded-lg bg-paper px-2 py-1 text-[16px] font-extrabold text-money-in" onClick={() => setSheet({ title: `${wtLabel(wt, lang)} — ${t('wizard.customerPrice')}`, initial: p.customer, save: (v) => setPrices((ps) => ps.map((x) => (x.workTypeId === p.workTypeId ? { ...x, customer: v, on: true } : x))) })}>
                       {p.customer || '0'}
