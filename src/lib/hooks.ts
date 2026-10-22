@@ -56,7 +56,8 @@ export function useCashMoves(): CashMove[] {
   return useLiveQuery(() => db.cashMoves.toArray(), []) ?? [];
 }
 
-// Кто вышел на объект в этот день: undefined — ещё грузится, null — записи нет
+// Кто вышел на объект в этот день (для чтения на «Сегодня»; экраны ввода
+// делают самоидентифицирующийся запрос сами — см. AttendanceToday)
 export function useAttendance(objectId: string | undefined, date: string): Attendance | null | undefined {
   return useLiveQuery(
     async () => (objectId ? (await db.attendance.where({ objectId, date }).first()) ?? null : null),

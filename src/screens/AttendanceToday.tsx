@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Check } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
-import { useActiveObject, useAttendance, useWorkers } from '../lib/hooks';
+import { db } from '../db/db';
+import { useActiveObject, useWorkers } from '../lib/hooks';
 import { setAttendance, todayStr } from '../db/repo';
 import { useToast } from '../state/toast';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -19,16 +21,22 @@ export function AttendanceToday() {
   const activeObject = useActiveObject();
   const workers = useWorkers().filter((w) => !w.archivedAt);
   const [date, setDate] = useState(todayStr());
-  const saved = useAttendance(activeObject?.id, date);
   const [ids, setIds] = useState<string[]>([]);
   const [loadedFor, setLoadedFor] = useState('');
 
-  // Подставляем сохранённое за день, когда запрос за этот день действительно отработал
+  // Результат сам называет свой ключ: при смене объекта или даты хук отдаёт
+  // устаревшее значение прошлого запроса, и по ключу мы его отбрасываем
+  const saved = useLiveQuery(async () => {
+    if (!activeObject) return undefined;
+    const rec = (await db.attendance.where({ objectId: activeObject.id, date }).first()) ?? null;
+    return { key: `${activeObject.id}:${date}`, rec };
+  }, [activeObject?.id, date]);
+
   useEffect(() => {
-    if (!activeObject || saved === undefined) return;
+    if (!activeObject || !saved) return;
     const key = `${activeObject.id}:${date}`;
-    if (loadedFor === key) return;
-    setIds(saved?.workerIds ?? []);
+    if (saved.key !== key || loadedFor === key) return;
+    setIds(saved.rec?.workerIds ?? []);
     setLoadedFor(key);
   }, [saved, date, activeObject, loadedFor]);
 

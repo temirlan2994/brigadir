@@ -26,7 +26,7 @@ export function ObjectScreen() {
       <ScreenHeader
         title={o.name}
         sub={[o.customerName, o.paymentTerms].filter(Boolean).join(' · ') || undefined}
-        right={!isActive && !o.closedAt ? (
+        right={!isActive && !o.closedAt && !o.archivedAt ? (
           <button className="min-h-[44px] rounded-full bg-accent px-3 text-[13px] font-bold" onClick={() => void updateSettings({ activeObjectId: o.id })} data-testid="make-active">
             {t('objects.makeCurrent')}
           </button>
@@ -60,7 +60,7 @@ export function ObjectScreen() {
           testId="menu-result"
         />
 
-        {!o.closedAt && (
+        {!o.closedAt && !o.archivedAt && (
           <div className="sticky bottom-0 mt-auto bg-paper pt-3">
             <BigButton
               label={t('today.recordWork')}

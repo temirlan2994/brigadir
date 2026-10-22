@@ -86,10 +86,10 @@ export function ObjectPrices() {
         )}
 
         <div className="mt-4 flex flex-col gap-2">
-          {settings.activeObjectId !== o.id && !o.closedAt && (
+          {settings.activeObjectId !== o.id && !o.closedAt && !o.archivedAt && (
             <BigButton label={t('objects.makeCurrent')} tone="neutral" onClick={() => void updateSettings({ activeObjectId: o.id })} />
           )}
-          {!o.closedAt && (
+          {!o.closedAt && !o.archivedAt && (
             <BigButton label={t('object.closeObject')} tone="neutral" onClick={() => navigate(`/objects/${id}/close`)} testId="to-close" />
           )}
           <button className="min-h-[44px] text-[15px] font-semibold text-slate-500" onClick={() => { void updateObject(id, { archivedAt: o.archivedAt ? undefined : nowIso() }); navigate(-1); }}>

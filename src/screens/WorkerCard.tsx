@@ -6,7 +6,7 @@ import { useEntries, usePayouts, useWorkers, useWorkTypes } from '../lib/hooks';
 import {
   activeEntries, accruedForWorker, paidToWorker, withheldFromWorker, workerBalance, notDeleted,
 } from '../core/calc';
-import { formatMoney, formatMoneyExact, formatQuantity } from '../core/format';
+import { formatMoney, formatMoneyExact, formatQuantity, groupDigits } from '../core/format';
 import { updateWorker, nowIso } from '../db/repo';
 import { sendText } from '../lib/report';
 import { useToast } from '../state/toast';
@@ -116,9 +116,9 @@ export function WorkerCard() {
             {formatMoney(Math.abs(balance))}
           </span>
           <span className="mt-3 grid grid-cols-3 gap-2">
-            <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('workers.earned')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(accrued)}</span></span>
-            <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('workers.got')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(paid)}</span></span>
-            <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('workers.withheld')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(withheld)}</span></span>
+            <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('workers.earned')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(accrued / 100))}</span></span>
+            <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('workers.got')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(paid / 100))}</span></span>
+            <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('workers.withheld')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(withheld / 100))}</span></span>
           </span>
         </Card>
 

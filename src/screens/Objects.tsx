@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useT, useLangStore, formatDateShort } from '../i18n';
-import { formatMoney } from '../core/format';
+import { formatMoney, groupDigits } from '../core/format';
 import { useEntries, useObjects, useReceipts, useAdjustments, useSettings, useExpenses, byObject } from '../lib/hooks';
 import {
   activeEntries, doneTotal, acceptedTotal, customerOwes, notDeleted, objectStage,
@@ -63,9 +63,9 @@ export function Objects() {
               </span>
               <span className="mt-3 block"><StageStrip stage={s.stage} /></span>
               <span className="mt-3 grid grid-cols-3 gap-2">
-                <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('objects.done')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(s.done)}</span></span>
-                <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('objects.accepted')}</span><span className="block truncate text-[15px] font-extrabold">{formatMoney(s.accepted)}</span></span>
-                <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('objects.owed')}</span><span className={`block truncate text-[15px] font-extrabold ${s.owed > 0 ? 'text-money-in' : ''}`}>{formatMoney(Math.max(0, s.owed))}</span></span>
+                <span className="min-w-0"><span className="block text-[12px] font-medium text-slate-500">{t('objects.done')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(s.done / 100))}</span></span>
+                <span className="min-w-0 text-center"><span className="block text-[12px] font-medium text-slate-500">{t('objects.accepted')}</span><span className="block truncate text-[15px] font-extrabold">{groupDigits(Math.round(s.accepted / 100))}</span></span>
+                <span className="min-w-0 text-right"><span className="block text-[12px] font-medium text-slate-500">{t('objects.owed')}</span><span className={`block truncate text-[15px] font-extrabold ${s.owed > 0 ? 'text-money-in' : ''}`}>{groupDigits(Math.round(Math.max(0, s.owed) / 100))}</span></span>
               </span>
             </Card>
           );

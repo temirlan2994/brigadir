@@ -181,17 +181,19 @@ export function WorkWizard() {
   const manualSum = shares.reduce((s, x) => s + x.amount, 0);
   const manualRemainder = totals.workersTotal - manualSum;
   const manualInvalid = draft.splitMode === 'manual' && manualRemainder !== 0;
-  const canSave = quantity > 0 && draft.workerIds.length > 0 && !manualInvalid && !!workType && !!activeObject;
+  // Правка живёт в объекте самой записи, даже если он уже закрыт
+  const targetObjectId = isEdit ? editEntry!.objectId : activeObject?.id;
+  const canSave = quantity > 0 && draft.workerIds.length > 0 && !manualInvalid && !!workType && !!targetObjectId;
 
   async function save() {
-    if (!canSave || !workType || !activeObject) return;
+    if (!canSave || !workType || !targetObjectId) return;
     let note = draft.note.trim();
     if (draft.areaMode) {
       const dims = `${draft.lengthInput}×${draft.heightInput}${draft.openingInputs.length ? ` − ${draft.openingInputs.join(' − ')}` : ''} м²`;
       note = note ? `${dims}. ${note}` : dims;
     }
     const data = {
-      objectId: activeObject.id,
+      objectId: targetObjectId,
       workTypeId: workType.id,
       date: draft.date || todayStr(),
       quantity,
@@ -221,7 +223,7 @@ export function WorkWizard() {
       ? await reviseWorkEntry(editId!, data)
       : await addWorkEntry(data);
     if (draft.rememberRate && priceChanged) {
-      await upsertRate(activeObject.id, workType.id, customerPrice, workerPrice);
+      await upsertRate(targetObjectId, workType.id, customerPrice, workerPrice);
     }
     // Назад по иерархии: снимаем все шаги мастера (и устаревшую карточку при правке)
     const idx = historyIdx();
